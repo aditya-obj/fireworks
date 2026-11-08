@@ -6,6 +6,12 @@ import { Starburst } from './starburst';
 import { RomanCandle } from './romanCandle';
 import { Sparkler } from './sparkler';
 import { GrandFinale } from './grandFinale';
+import { AtomBomb } from './atomBomb';
+import { SnakeTablet } from './snakeTablet';
+import { Ladi } from './ladi';
+import { Chakri } from './chakri';
+import { Pencil } from './pencil';
+import { SkyLantern } from './skyLantern';
 import { DetectedGesture } from '../vision/gestureTypes';
 import { COLORS } from './fireworkColors';
 
@@ -14,7 +20,13 @@ export class FireworkDirector {
   private effects: FireworkEffect[] = [];
   private continuousAnars: Map<number, Anar> = new Map();
   private continuousSparklers: Map<number, Sparkler> = new Map();
+  private continuousPencils: Map<number, Pencil> = new Map();
   private onSound?: SoundTriggerCallback;
+  /** Screen shake amount (0..1), decays every frame; read by the app */
+  public shake = 0;
+  private addShake = (amount: number) => {
+    this.shake = Math.min(1.2, this.shake + amount);
+  };
 
   constructor(onSound?: SoundTriggerCallback) {
     this.onSound = onSound;
@@ -34,6 +46,7 @@ export class FireworkDirector {
   ): void {
     const activeAnarHands = new Set<number>();
     const activeSparklerHands = new Set<number>();
+    const activePencilHands = new Set<number>();
 
     for (const g of gestures) {
       const { type, triggerPoint, handIndex } = g;
@@ -82,6 +95,50 @@ export class FireworkDirector {
           break;
         }
 
+        case 'ATOM_BOMB': {
+          this.effects.push(new AtomBomb(triggerPoint.x, triggerPoint.y, this.onSound, this.addShake));
+          break;
+        }
+
+        case 'LADI': {
+          this.effects.push(new Ladi(triggerPoint.x, triggerPoint.y, screenH, this.onSound, this.addShake));
+          break;
+        }
+
+        case 'SNAKE': {
+          this.effects.push(new SnakeTablet(triggerPoint.x, triggerPoint.y, this.onSound, Math.max(0.8, screenH / 900)));
+          break;
+        }
+
+        case 'HYDROGEN_BOMB': {
+          this.effects.push(new AtomBomb(triggerPoint.x, triggerPoint.y, this.onSound, this.addShake, 2));
+          break;
+        }
+
+        case 'CHAKRI': {
+          // spins right where the circle was drawn
+          this.effects.push(new Chakri(triggerPoint.x, triggerPoint.y, this.onSound));
+          break;
+        }
+
+        case 'SKY_LANTERN': {
+          const lanterns = this.effects.filter((e) => e instanceof SkyLantern).length;
+          if (lanterns < 8) this.effects.push(new SkyLantern(triggerPoint.x, triggerPoint.y, screenH));
+          break;
+        }
+
+        case 'PENCIL': {
+          activePencilHands.add(handIndex);
+          let pencil = this.continuousPencils.get(handIndex);
+          if (!pencil || !pencil.active) {
+            pencil = new Pencil(triggerPoint.x, triggerPoint.y, this.onSound);
+            this.continuousPencils.set(handIndex, pencil);
+            this.effects.push(pencil);
+          }
+          pencil.updatePosition(triggerPoint.x, triggerPoint.y, g.direction);
+          break;
+        }
+
         case 'GRAND_FINALE': {
           this.effects.push(new GrandFinale(screenW, screenH, this.onSound));
           break;
@@ -94,6 +151,13 @@ export class FireworkDirector {
       if (!activeAnarHands.has(handIdx)) {
         anar.stop();
         this.continuousAnars.delete(handIdx);
+      }
+    }
+
+    for (const [handIdx, pencil] of this.continuousPencils.entries()) {
+      if (!activePencilHands.has(handIdx)) {
+        pencil.stop();
+        this.continuousPencils.delete(handIdx);
       }
     }
 
@@ -118,6 +182,11 @@ export class FireworkDirector {
         this.effects.splice(i, 1);
       }
     }
+
+    this.shake = Math.max(0, this.shake - dt * 2.5);
+
+    // Non-glowing layers (smoke, paper, ash) go under the additive sparks
+    for (const effect of this.effects) effect.render?.(ctx);
 
     // 2. Update particle physics with micro-crackle pop callback
     this.pool.update(dt, (x: number, y: number, color: ParticleColor) => {
@@ -148,6 +217,7 @@ export class FireworkDirector {
     this.effects = [];
     this.continuousAnars.clear();
     this.continuousSparklers.clear();
+    this.continuousPencils.clear();
     this.pool.clear();
   }
 }

@@ -38,6 +38,8 @@ class FireworksApp {
   private reelDialogCloseBtn: HTMLElement;
 
   private isCreatorMode: boolean = false;
+  private guideBar: HTMLElement | null = null;
+  private guideNear = false;
   private lastFrameTime: number = performance.now();
   private recordedVideoUrl: string = '';
 
@@ -95,6 +97,24 @@ class FireworksApp {
         case 'FINALE':
           this.audio.playFinaleBarrage();
           break;
+        case 'FUSE':
+          this.audio.playFuse();
+          break;
+        case 'ATOM_BLAST':
+          this.audio.playAtomBlast();
+          break;
+        case 'LADI_POP':
+          this.audio.playCrack(intensity);
+          break;
+        case 'SNAKE_FIZZ':
+          this.audio.playSnakeFizz();
+          break;
+        case 'HYDROGEN_BLAST':
+          this.audio.playHydrogenBlast();
+          break;
+        case 'CHAKRI_SPIN':
+          this.audio.playChakri();
+          break;
       }
     });
 
@@ -133,6 +153,23 @@ class FireworksApp {
       this.audioBtn.setAttribute('aria-pressed', String(muted));
     };
     this.audioBtn.addEventListener('click', toggleAudio);
+
+    // 3b. Mic in recordings (off by default: only firework sounds are recorded)
+    const micBtn = document.getElementById('btn-mic') as HTMLButtonElement;
+    let micOn = false;
+    micBtn.addEventListener('click', async () => {
+      try {
+        micOn = await this.audio.setMicInRecording(!micOn);
+      } catch (err) {
+        console.warn('Microphone unavailable:', err);
+        micOn = false;
+        micBtn.title = 'Microphone is blocked. Allow it from the address bar to record your voice.';
+      }
+      micBtn.classList.toggle('is-on', micOn);
+      micBtn.setAttribute('aria-pressed', String(micOn));
+      if (micOn) micBtn.title = 'Your voice is included in recordings';
+      else if (!micBtn.title.startsWith('Microphone is blocked')) micBtn.title = 'Include your voice in recordings';
+    });
 
     // 4. Postcard Screenshot (S key)
     const takeSnap = () => {
@@ -219,7 +256,7 @@ class FireworksApp {
       if (e.key === 's' || e.key === 'S') takeSnap();
       if (e.key === 'r' || e.key === 'R') toggleRecording();
 
-      // Manual Testing Keys (1 to 6)
+      // Manual Testing Keys (1 to 9)
       const w = this.compositor.width;
       const h = this.compositor.height;
       const center = { x: w / 2, y: h / 2 };
@@ -236,6 +273,20 @@ class FireworksApp {
         this.director.handleGestures([{ type: 'PHOOLJHADI', confidence: 1, triggerPoint: center, handIndex: 0, isContinuous: true }], w, h);
       } else if (e.key === '6') {
         this.triggerGrandFinale(w, h);
+      } else if (e.key === '7') {
+        this.director.handleGestures([{ type: 'ATOM_BOMB', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.7 }, handIndex: 0, isContinuous: false }], w, h);
+      } else if (e.key === '8') {
+        this.director.handleGestures([{ type: 'LADI', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.25 }, handIndex: 0, isContinuous: false }], w, h);
+      } else if (e.key === '9') {
+        this.director.handleGestures([{ type: 'SNAKE', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.8 }, handIndex: 0, isContinuous: false }], w, h);
+      } else if (e.key === '0') {
+        this.director.handleGestures([{ type: 'CHAKRI', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.6 }, handIndex: 0, isContinuous: false }], w, h);
+      } else if (e.key === 'l' || e.key === 'L') {
+        this.director.handleGestures([{ type: 'SKY_LANTERN', confidence: 1, triggerPoint: { x: w * (0.3 + Math.random() * 0.4), y: h * 0.75 }, handIndex: 0, isContinuous: false }], w, h);
+      } else if (e.key === 'b' || e.key === 'B') {
+        this.director.handleGestures([{ type: 'HYDROGEN_BOMB', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.7 }, handIndex: -2, isContinuous: false }], w, h);
+      } else if (e.key === 'p' || e.key === 'P') {
+        this.director.handleGestures([{ type: 'PENCIL', confidence: 1, triggerPoint: { x: w * 0.3, y: h * 0.6 }, handIndex: 0, isContinuous: true, direction: { x: 1, y: -0.4 } }], w, h);
       }
     });
 
@@ -311,6 +362,65 @@ class FireworksApp {
     });
   }
 
+  private updateGuideFade(): void {
+    this.guideBar ??= document.querySelector('.gesture-dock');
+    if (!this.guideBar) return;
+    const r = this.guideBar.getBoundingClientRect();
+    // Only when the hand is actually over the guide (fingertips or palm inside it)
+    let near = false;
+    for (const hand of this.vision.detectedHands) {
+      for (const i of [0, 4, 8, 9, 12, 16, 20]) {
+        const p = hand.landmarks[i];
+        if (p.x > r.left && p.x < r.right && p.y > r.top && p.y < r.bottom) {
+          near = true;
+          break;
+        }
+      }
+      if (near) break;
+    }
+    if (near !== this.guideNear) {
+      this.guideNear = near;
+      this.guideBar.classList.toggle('is-faded', near);
+    }
+  }
+
+  private drawBrand(): void {
+    const ctx = this.compositor.ctx;
+    const small = this.compositor.width <= 860;
+    const x = small ? 14 : 26;
+    const y = small ? 14 : 22;
+    const nameSize = small ? 20 : 28;
+    const subSize = small ? 13 : 15;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.textBaseline = 'top';
+    // legibility shadow, then a soft glow pass on top
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 1;
+    ctx.font = `400 ${nameSize}px "Instrument Serif", Georgia, serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('Fireworks', x, y);
+    ctx.shadowColor = 'rgba(255, 236, 200, 0.55)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 0;
+    ctx.fillText('Fireworks', x, y);
+
+    const subY = y + nameSize * 0.98;
+    ctx.font = `italic 400 ${subSize}px "Instrument Serif", Georgia, serif`;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = '#ffc163';
+    ctx.fillText('Diwali 2k26', x, subY);
+    ctx.shadowColor = 'rgba(255, 170, 60, 0.85)';
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 0;
+    ctx.fillText('Diwali 2k26', x, subY);
+    ctx.restore();
+  }
+
   private loop = (): void => {
     const now = performance.now();
     const dt = Math.min((now - this.lastFrameTime) / 1000, 0.1);
@@ -324,6 +434,10 @@ class FireworksApp {
       this.compositor.video,
       this.compositor.getVideoRect()
     );
+
+    // Fade the gesture guide out of the way when a hand comes near it, so
+    // crackers lit low on the screen aren't hidden behind it
+    this.updateGuideFade();
 
     // Check if Grand Finale was recognized by gesture
     const isFinale = activeGestures.some((g) => g.type === 'GRAND_FINALE');
@@ -341,13 +455,27 @@ class FireworksApp {
     // 4. Simulate & Render Particle Fireworks with Additive Blending & Lighting
     this.director.updateAndRender(dt, this.compositor.ctx);
 
+    // Screen shake from big blasts
+    const shake = this.director.shake;
+    this.compositor.canvas.style.transform = shake > 0.01
+      ? `translate(${((Math.random() - 0.5) * 18 * shake).toFixed(1)}px, ${((Math.random() - 0.5) * 18 * shake).toFixed(1)}px)`
+      : '';
+
     // 5. Draw Debug skeleton if active
     this.vision.drawDebugSkeleton(this.compositor.ctx);
+
+    // 6. Title, drawn on the canvas so it's in recordings and snapshots
+    //    (buttons and the gesture guide are page overlays and never recorded)
+    this.drawBrand();
 
     requestAnimationFrame(this.loop);
   };
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Chromium supports SVG filters inside backdrop-filter (lens refraction on glass)
+  if ((navigator as Navigator & { userAgentData?: unknown }).userAgentData) {
+    document.documentElement.classList.add('lg-refract');
+  }
   new FireworksApp();
 });

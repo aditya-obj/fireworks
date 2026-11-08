@@ -64,17 +64,6 @@ button {
   z-index: 1;
 }
 
-/* Soft edge falloff so the HUD stays legible without darkening the subject */
-.vignette-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, transparent 18%, transparent 78%, rgba(0, 0, 0, 0.45) 100%),
-    radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.35) 100%);
-  z-index: 2;
-}
-
 /* ============================================================
    GRAND FINALE CENTERPIECE ("HAPPY DIWALI")
    ============================================================ */
@@ -249,19 +238,20 @@ button {
    .lg-on     "switched on" state (solid white)
    .lg-field  input sunk into a panel
    .lg-dark   on any parent for a darker tint
+   Edge refraction: SVG lens filter in index.html, Chromium only (.lg-refract).
    No opacity on .lg-glass itself: it kills backdrop-filter. Fade children instead.
    ============================================================ */
 .lg-glass {
-  --lg-tint: rgba(16, 16, 20, 0.2);
+  --lg-tint: rgba(16, 16, 20, 0.08);
   position: relative;
   isolation: isolate;
   /* 2. Tint: faint dark base + soft white top-to-bottom gradient */
   background:
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02)),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
     var(--lg-tint);
   /* 1. Frost: light blur keeps it clear; saturate makes it read as glass */
-  -webkit-backdrop-filter: blur(5px) saturate(1.6) brightness(0.95);
-  backdrop-filter: blur(5px) saturate(1.6) brightness(0.95);
+  -webkit-backdrop-filter: blur(3px) saturate(1.6) brightness(0.95);
+  backdrop-filter: blur(3px) saturate(1.6) brightness(0.95);
   border: none;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 0, 0, 0.18);
@@ -273,9 +263,14 @@ button {
     0 8px 24px rgba(0, 0, 0, 0.22);
 }
 
+/* Chromium: edges bend the light behind the glass like a lens */
+.lg-refract .lg-glass {
+  backdrop-filter: url(#lg-lens) blur(3px) saturate(1.6) brightness(0.95);
+}
+
 .lg-dark .lg-glass,
 .lg-glass.lg-dark {
-  --lg-tint: rgba(12, 12, 16, 0.55);
+  --lg-tint: rgba(12, 12, 16, 0.38);
 }
 
 /* 3. Edge: 1px gradient border, brightest bottom-right; mask cuts out the middle */
@@ -428,6 +423,19 @@ button.lg-tile.lg-on:hover {
   color: var(--accent);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.hud-header {
+  justify-content: flex-end;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -471,6 +479,23 @@ button.lg-tile.lg-on:hover {
 
 .icon-btn.is-muted .icon-sound-off {
   display: block;
+}
+
+.icon-btn .icon-mic-on,
+.icon-btn.is-on .icon-mic-off {
+  display: none;
+}
+
+.icon-btn.is-on .icon-mic-on {
+  display: block;
+}
+
+.icon-btn.is-on {
+  --lg-tint: rgba(255, 181, 71, 0.35);
+}
+
+.icon-btn:not(.is-on) .icon-mic-off {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .icon-btn.is-muted {
@@ -527,16 +552,27 @@ button.lg-tile.lg-on:hover {
   pointer-events: auto;
 }
 
+/* The glass frame stays put; on phones only the list inside it scrolls */
+.gesture-dock {
+  border-radius: 24px;
+  max-width: min(1060px, 100%);
+  overflow: hidden;
+  transition: opacity 0.35s var(--ease);
+}
+
 .gesture-bar {
   list-style: none;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: stretch;
   padding: 6px;
   gap: 2px;
-  border-radius: 24px;
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
+}
+
+/* Partly see-through while a hand is over it, so crackers behind it stay visible */
+.gesture-dock.is-faded {
+  opacity: 0.45;
 }
 
 .gesture {
@@ -545,7 +581,7 @@ button.lg-tile.lg-on:hover {
   grid-template-rows: auto auto;
   column-gap: 10px;
   align-items: center;
-  padding: 8px 16px 8px 12px;
+  padding: 7px 14px 7px 10px;
   border-radius: 18px;
 }
 
@@ -554,6 +590,13 @@ button.lg-tile.lg-on:hover {
   font-size: 19px;
   line-height: 1;
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+
+.gesture-svg {
+  display: block;
+  width: 21px;
+  height: 21px;
 }
 
 .gesture-name {
@@ -927,6 +970,55 @@ button.lg-tile.lg-on:hover {
   .garland-flower {
     width: 36px;
     height: 36px;
+  }
+}
+
+/* Phones: the guide becomes one compact, swipeable row to save vertical space */
+@media (max-width: 640px) {
+  .hud-container {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+  .gesture-dock {
+    max-width: 100%;
+    border-radius: 18px;
+  }
+  .gesture-bar {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px;
+    /* soft fade at the scroll edges */
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  }
+  .gesture-bar::-webkit-scrollbar {
+    display: none;
+  }
+  .gesture {
+    flex: 0 0 auto;
+    row-gap: 2px;
+    padding: 5px 7px;
+    border-radius: 13px;
+  }
+  .gesture-glyph {
+    font-size: 16px;
+  }
+  .gesture-svg {
+    width: 17px;
+    height: 17px;
+  }
+  .gesture-name {
+    font-size: 9.5px;
+    font-weight: 500;
+  }
+  .icon-btn,
+  .record-btn {
+    height: 38px;
+  }
+  .icon-btn {
+    width: 38px;
   }
 }
 

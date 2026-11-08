@@ -54,9 +54,10 @@ export class VisionEngine {
             },
             runningMode: 'VIDEO',
             numHands: 2,
-            minHandDetectionConfidence: 0.55,
-            minHandPresenceConfidence: 0.55,
-            minTrackingConfidence: 0.55
+            // slightly lower so hands near the frame edge (partly cut off) still track
+            minHandDetectionConfidence: 0.5,
+            minHandPresenceConfidence: 0.45,
+            minTrackingConfidence: 0.45
           });
           if (landmarkerInstance) break;
         } catch (e) {
@@ -92,36 +93,87 @@ export class VisionEngine {
       this.lastVideoTime = currentTime;
       const now = performance.now();
       const result: HandLandmarkerResult = this.landmarker.detectForVideo(video, now);
-      this.detectedHands = this.parsePoses(result, rect);
+      this.detectedHands = this.parsePoses(result, rect, now);
       this.activeGestures = this.classifier.classify(this.detectedHands, rect.w);
+      return this.activeGestures;
     }
 
-    return this.activeGestures;
+    // Between camera frames, repeat only continuous gestures (Anar, Phooljhadi).
+    // One-shots were already returned once; repeating them would double-fire.
+    return this.activeGestures.filter((g) => g.isContinuous);
   }
 
+  /** Per-hand memory for smoothing and hysteresis, keyed by stable hand id */
+  private handMemory: Map<number, {
+    screen: ScreenLandmark[];
+    world: ScreenLandmark[];
+    fingers: Record<'index' | 'middle' | 'ring' | 'pinky', FingerState>;
+    thumb: boolean;
+    pinching: boolean;
+    seen: number;
+    filters: { screen: OneEuro[]; world: OneEuro[] };
+  }> = new Map();
+
   /**
-   * Converts raw normalized landmarks into screen-space pixel coordinates
-   * with horizontal mirroring applied.
+   * Converts landmarks into mirrored screen coordinates (for positions) and
+   * classifies finger states from MediaPipe's 3D world landmarks (for shape).
+   * World landmarks are metric and camera-angle independent, so a tilted or
+   * forward-pointing hand isn't misread because of foreshortening.
    */
   private parsePoses(
     result: HandLandmarkerResult,
-    rect: { x: number; y: number; w: number; h: number }
+    rect: { x: number; y: number; w: number; h: number },
+    now: number
   ): HandPose[] {
     const hands: HandPose[] = [];
+    const usedIds = new Set<number>();
 
     result.landmarks.forEach((rawMarks, idx) => {
       const handednessRaw = result.handedness[idx]?.[0]?.categoryName;
       // Invert handedness because the view is mirrored
       const handedness: 'Left' | 'Right' = handednessRaw === 'Left' ? 'Right' : 'Left';
 
-      // Transform normalized coords into mirrored screen pixels
-      const screenMarks: ScreenLandmark[] = rawMarks.map((lm) => ({
-        x: rect.x + (1 - lm.x) * rect.w, // Horizontal mirror, mapped into the drawn video frame
+      // Stable id per physical hand (MediaPipe's list order can swap between frames)
+      let id = handedness === 'Left' ? 0 : 1;
+      if (usedIds.has(id)) id = id === 0 ? 1 : 0;
+      usedIds.add(id);
+      const mem = this.handMemory.get(id);
+      const fresh = !mem || now - mem.seen > 250;
+
+      // Screen-space landmarks (mirrored, mapped into the drawn video frame)
+      const rawScreen: ScreenLandmark[] = rawMarks.map((lm) => ({
+        x: rect.x + (1 - lm.x) * rect.w,
         y: rect.y + lm.y * rect.h,
         z: lm.z
       }));
+      const worldRaw = result.worldLandmarks?.[idx];
+      const rawWorld: ScreenLandmark[] = worldRaw
+        ? worldRaw.map((lm) => ({ x: lm.x, y: lm.y, z: lm.z }))
+        : rawScreen.map((p) => ({ x: p.x, y: p.y, z: 0 }));
 
-      // Calculate Palm Center (average of wrist 0, index MCP 5, pinky MCP 17)
+      // One Euro filter: heavy smoothing when the hand is still (kills jitter, which
+      // matters most when you're far away and the hand is small), light smoothing
+      // when it moves fast (no lag). Screen coords are filtered in frame-width units
+      // so the filter behaves the same at any distance or window size.
+      const filters = fresh
+        ? {
+            screen: Array.from({ length: 63 }, () => new OneEuro(1.0, 4.0)),
+            world: Array.from({ length: 63 }, () => new OneEuro(1.2, 25.0))
+          }
+        : mem!.filters;
+      const t = now / 1000;
+      const sc = rect.w || 1;
+      const screenMarks: ScreenLandmark[] = rawScreen.map((p, i) => ({
+        x: filters.screen[i * 3].filter(p.x / sc, t) * sc,
+        y: filters.screen[i * 3 + 1].filter(p.y / sc, t) * sc,
+        z: filters.screen[i * 3 + 2].filter(p.z, t)
+      }));
+      const world: ScreenLandmark[] = rawWorld.map((p, i) => ({
+        x: filters.world[i * 3].filter(p.x, t),
+        y: filters.world[i * 3 + 1].filter(p.y, t),
+        z: filters.world[i * 3 + 2].filter(p.z, t)
+      }));
+
       const wrist = screenMarks[0];
       const indexMcp = screenMarks[5];
       const pinkyMcp = screenMarks[17];
@@ -131,52 +183,91 @@ export class VisionEngine {
         z: (wrist.z + indexMcp.z + pinkyMcp.z) / 3
       };
 
-      // Hand size makes every threshold independent of distance from the camera
-      const handSize = Math.max(
-        1,
-        Math.hypot(screenMarks[9].x - wrist.x, screenMarks[9].y - wrist.y)
-      );
+      // Screen-space hand size (for trigger offsets and two-hand distances)
+      const handSize = Math.max(1, dist2(screenMarks[9], wrist));
 
-      // Each finger is extended, curled, or in-between (neither). Gestures
-      // require definite states, so half-bent fingers never trigger anything.
-      const fingerState = (mcp: number, pip: number, tip: number) =>
-        this.fingerState(screenMarks, mcp, pip, tip, wrist);
-      const index = fingerState(5, 6, 8);
-      const middle = fingerState(9, 10, 12);
-      const ring = fingerState(13, 14, 16);
-      const pinky = fingerState(17, 18, 20);
+      // How much the fingers are moving relative to the wrist (opening/closing
+      // the hand), and how much the whole hand is moving
+      let fingerMotion = 0;
+      let handMotion = 0;
+      if (!fresh) {
+        // ~1.5px of leftover tracking noise is ignored, so a small, far-away hand
+        // that's holding still doesn't count as "moving"
+        const NOISE_PX = 1.5;
+        const pw = mem!.screen[0];
+        handMotion = Math.max(0, dist2(pw, wrist) - NOISE_PX) / handSize;
+        for (const k of [4, 8, 12, 16, 20]) {
+          const p0 = mem!.screen[k];
+          const p1 = screenMarks[k];
+          const d = Math.hypot((p1.x - wrist.x) - (p0.x - pw.x), (p1.y - wrist.y) - (p0.y - pw.y));
+          fingerMotion += Math.max(0, d - NOISE_PX) / handSize;
+        }
+        fingerMotion /= 5;
+      }
+      // World-space hand size (wrist to middle knuckle, ~9cm)
+      const worldSize = Math.max(1e-6, dist3(world[9], world[0]));
+
+      const prev = fresh ? undefined : mem!.fingers;
+      const fingers = {
+        index: fingerState(world, 0, 5, 6, 7, 8, prev?.index),
+        middle: fingerState(world, 0, 9, 10, 11, 12, prev?.middle),
+        ring: fingerState(world, 0, 13, 14, 15, 16, prev?.ring),
+        pinky: fingerState(world, 0, 17, 18, 19, 20, prev?.pinky)
+      };
+      const thumb = thumbExtended(world, worldSize, fresh ? undefined : mem!.thumb);
 
       const extendedFingers = {
-        index: index === 'extended',
-        middle: middle === 'extended',
-        ring: ring === 'extended',
-        pinky: pinky === 'extended',
-        thumb: this.isThumbExtended(screenMarks, pinkyMcp)
+        index: fingers.index === 'extended',
+        middle: fingers.middle === 'extended',
+        ring: fingers.ring === 'extended',
+        pinky: fingers.pinky === 'extended',
+        thumb
       };
       const curledFingers = {
-        index: index === 'curled',
-        middle: middle === 'curled',
-        ring: ring === 'curled',
-        pinky: pinky === 'curled'
+        index: fingers.index === 'curled',
+        middle: fingers.middle === 'curled',
+        ring: fingers.ring === 'curled',
+        pinky: fingers.pinky === 'curled'
       };
 
-      // 👌 Pinch: thumb & index tips touching while the other fingers stay up
-      const thumbTip = screenMarks[4];
-      const indexTip = screenMarks[8];
-      const pinchDistance = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
-      const othersUp =
-        Number(extendedFingers.middle) + Number(extendedFingers.ring) + Number(extendedFingers.pinky);
-      const isPinching = pinchDistance < handSize * 0.3 && othersUp >= 2;
+      // 👌 Pinch: thumb & index tips touching (3D), other fingers up
+      // 🤏 / 👌 Pinch: thumb tip meets the index *tip* (not its side, which is a
+      // finger heart), with the index reaching out (not curled into a fist)
+      const pinchRatio = dist3(world[4], world[8]) / worldSize;
+      const thumbToIndexMid = Math.min(dist3(world[4], world[6]), dist3(world[4], world[7])) / worldSize;
+      const indexReach = dist3(world[8], world[0]) / worldSize;
+      const wasPinching = !fresh && mem!.pinching;
+      const isPinching =
+        pinchRatio < (wasPinching ? 0.42 : 0.3) &&
+        pinchRatio <= thumbToIndexMid &&
+        indexReach > (wasPinching ? 1.05 : 1.15);
+
+      this.handMemory.set(id, {
+        screen: screenMarks,
+        world,
+        fingers,
+        thumb,
+        pinching: isPinching,
+        seen: now,
+        filters
+      });
 
       hands.push({
+        id,
         handedness,
         landmarks: screenMarks,
         rawLandmarks: rawMarks,
         extendedFingers,
         curledFingers,
         handSize,
+        fingerMotion,
+        handMotion,
+        indexReach,
+        thumbReach: dist3(world[4], world[0]) / worldSize,
+        thumbToIndexMid,
+        thumbToIndexTip: pinchRatio,
         palmCenter,
-        pinchDistance,
+        pinchDistance: pinchRatio * handSize,
         isPinching
       });
     });
@@ -184,47 +275,6 @@ export class VisionEngine {
     return hands;
   }
 
-  /**
-   * Rotation-invariant finger state from distances to the knuckle and wrist.
-   * A straight finger's tip is ~2x as far from its knuckle as the middle joint is;
-   * a folded finger's tip comes back to (or inside) the knuckle.
-   */
-  private fingerState(
-    marks: ScreenLandmark[],
-    mcpIdx: number,
-    pipIdx: number,
-    tipIdx: number,
-    wrist: ScreenLandmark
-  ): 'extended' | 'curled' | 'between' {
-    const tip = marks[tipIdx];
-    const pip = marks[pipIdx];
-    const mcp = marks[mcpIdx];
-
-    const tipWrist = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
-    const pipWrist = Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
-    const tipMcp = Math.hypot(tip.x - mcp.x, tip.y - mcp.y);
-    const pipMcp = Math.max(1, Math.hypot(pip.x - mcp.x, pip.y - mcp.y));
-
-    if (tipWrist > pipWrist * 1.2 && tipMcp > pipMcp * 1.6) return 'extended';
-    if (tipWrist < pipWrist * 1.02 || tipMcp < pipMcp * 1.15) return 'curled';
-    return 'between';
-  }
-
-  /**
-   * Thumb extension: distance from thumb tip to pinky MCP
-   */
-  private isThumbExtended(marks: ScreenLandmark[], pinkyMcp: ScreenLandmark): boolean {
-    const thumbTip = marks[4];
-    const thumbIp = marks[3];
-    const thumbMcp = marks[2];
-
-    const distTipPinky = Math.hypot(thumbTip.x - pinkyMcp.x, thumbTip.y - pinkyMcp.y);
-    const distIpPinky = Math.hypot(thumbIp.x - pinkyMcp.x, thumbIp.y - pinkyMcp.y);
-    const distTipMcp = Math.hypot(thumbTip.x - thumbMcp.x, thumbTip.y - thumbMcp.y);
-    const distIpMcp = Math.hypot(thumbIp.x - thumbMcp.x, thumbIp.y - thumbMcp.y);
-
-    return distTipPinky > distIpPinky * 1.15 && distTipMcp > distIpMcp;
-  }
 
   /**
    * Renders debug wireframe bone skeleton over hands
@@ -281,3 +331,88 @@ export class VisionEngine {
     ctx.restore();
   }
 }
+
+type FingerState = 'extended' | 'curled' | 'between';
+
+function dist2(a: ScreenLandmark, b: ScreenLandmark): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function dist3(a: ScreenLandmark, b: ScreenLandmark): number {
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+/** Angle at joint b (degrees) between segments b→a and b→c; 180 = straight */
+function jointAngle(a: ScreenLandmark, b: ScreenLandmark, c: ScreenLandmark): number {
+  const v1x = a.x - b.x, v1y = a.y - b.y, v1z = a.z - b.z;
+  const v2x = c.x - b.x, v2y = c.y - b.y, v2z = c.z - b.z;
+  const d = Math.hypot(v1x, v1y, v1z) * Math.hypot(v2x, v2y, v2z);
+  if (d === 0) return 180;
+  const cos = Math.max(-1, Math.min(1, (v1x * v2x + v1y * v2y + v1z * v2z) / d));
+  return (Math.acos(cos) * 180) / Math.PI;
+}
+
+/**
+ * Finger state from 3D joint angles, with hysteresis: once a finger is
+ * extended or curled it takes a clear change to leave that state, so noisy
+ * frames don't flip it back and forth.
+ */
+function fingerState(
+  w: ScreenLandmark[],
+  wrist: number, mcp: number, pip: number, dip: number, tip: number,
+  prev?: FingerState
+): FingerState {
+  const mcpAngle = jointAngle(w[wrist], w[mcp], w[pip]);
+  const pipAngle = jointAngle(w[mcp], w[pip], w[dip]);
+  const dipAngle = jointAngle(w[pip], w[dip], w[tip]);
+  const bend = (180 - pipAngle) + (180 - dipAngle); // 0 straight, ~180+ fully folded
+
+  const extLimit = prev === 'extended' ? 55 : 45;
+  const mcpLimit = prev === 'extended' ? 115 : 130;
+  if (bend < extLimit && mcpAngle > mcpLimit) return 'extended';
+
+  const curlLimit = prev === 'curled' ? 85 : 110;
+  if (bend > curlLimit || mcpAngle < 95) return 'curled';
+  return 'between';
+}
+
+/** Thumb is out when it's straight and its tip is away from the palm */
+function thumbExtended(w: ScreenLandmark[], size: number, prev?: boolean): boolean {
+  const straight = jointAngle(w[2], w[3], w[4]) > (prev ? 125 : 135);
+  const away = dist3(w[4], w[5]) / size > (prev ? 0.38 : 0.45) &&
+    dist3(w[4], w[17]) / size > (prev ? 0.72 : 0.8);
+  return straight && away;
+}
+
+/**
+ * One Euro filter (Casiez et al.): an adaptive low-pass filter. The cutoff
+ * rises with speed, so slow/still input is smoothed hard and fast motion
+ * passes through with little lag.
+ */
+class OneEuro {
+  private x: number | null = null;
+  private dx = 0;
+  private t = 0;
+  constructor(private minCutoff: number, private beta: number, private dCutoff = 1.0) {}
+
+  private static alpha(cutoff: number, dt: number): number {
+    const tau = 1 / (2 * Math.PI * cutoff);
+    return 1 / (1 + tau / dt);
+  }
+
+  filter(v: number, t: number): number {
+    if (this.x === null) {
+      this.x = v;
+      this.t = t;
+      return v;
+    }
+    const dt = Math.max(1e-3, t - this.t);
+    this.t = t;
+    const rawDx = (v - this.x) / dt;
+    this.dx += OneEuro.alpha(this.dCutoff, dt) * (rawDx - this.dx);
+    const cutoff = this.minCutoff + this.beta * Math.abs(this.dx);
+    this.x += OneEuro.alpha(cutoff, dt) * (v - this.x);
+    return this.x;
+  }
+}
+

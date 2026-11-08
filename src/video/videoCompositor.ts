@@ -147,6 +147,21 @@ export class VideoCompositor {
       // Subtle cool night tint
       ctx.fillStyle = 'rgba(8, 12, 30, 0.12)';
       ctx.fillRect(0, 0, width, height);
+
+      // Soft edge falloff (drawn here, not as a page overlay, so recordings
+      // match the screen and the title can sit above it at full brightness)
+      const lin = ctx.createLinearGradient(0, 0, 0, height);
+      lin.addColorStop(0, 'rgba(0,0,0,0.32)');
+      lin.addColorStop(0.18, 'rgba(0,0,0,0)');
+      lin.addColorStop(0.78, 'rgba(0,0,0,0)');
+      lin.addColorStop(1, 'rgba(0,0,0,0.42)');
+      ctx.fillStyle = lin;
+      ctx.fillRect(0, 0, width, height);
+      const rad = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.45, width / 2, height / 2, Math.hypot(width, height) / 2);
+      rad.addColorStop(0, 'rgba(0,0,0,0)');
+      rad.addColorStop(1, 'rgba(0,0,0,0.32)');
+      ctx.fillStyle = rad;
+      ctx.fillRect(0, 0, width, height);
     }
 
     ctx.restore();

@@ -77,7 +77,8 @@ export class PyroAudioEngine {
       ROMAN_POP: '/audio/roman-pop.mp3',
       ANAR: '/audio/anar-fountain.mp3',
       SPARKLER: '/audio/sparkler.mp3',
-      FINALE: '/audio/finale-barrage.mp3'
+      FINALE: '/audio/finale-barrage.mp3',
+      CHAKRI: '/audio/chakri-spin.mp3'
     };
 
     for (const [key, url] of Object.entries(files)) {
@@ -283,6 +284,130 @@ export class PyroAudioEngine {
     } catch {
       // Ignore if already stopped
     }
+  }
+
+  private micStream: MediaStream | null = null;
+  private micSource: MediaStreamAudioSourceNode | null = null;
+
+  /**
+   * Mixes the user's microphone into recordings only (never the speakers,
+   * so there's no feedback loop). Returns whether the mic is now on.
+   */
+  public async setMicInRecording(on: boolean): Promise<boolean> {
+    this.unlock();
+    if (!on) {
+      this.micSource?.disconnect();
+      this.micStream?.getTracks().forEach((t) => t.stop());
+      this.micSource = null;
+      this.micStream = null;
+      return false;
+    }
+    if (this.micSource) return true;
+    if (!this.ctx || !this.recordingDestination) return false;
+    this.micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    this.micSource = this.ctx.createMediaStreamSource(this.micStream);
+    const micGain = this.ctx.createGain();
+    micGain.gain.value = 1.0;
+    this.micSource.connect(micGain);
+    micGain.connect(this.recordingDestination);
+    return true;
+  }
+
+  private noiseBuffer: AudioBuffer | null = null;
+
+  private getNoise(): AudioBuffer | null {
+    if (!this.ctx) return null;
+    if (!this.noiseBuffer) {
+      const len = this.ctx.sampleRate * 2;
+      this.noiseBuffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const data = this.noiseBuffer.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    }
+    return this.noiseBuffer;
+  }
+
+  /** Filtered noise burst with an attack/decay envelope */
+  private noiseBurst(opts: { type: BiquadFilterType; freq: number; q?: number; gain: number; attack: number; decay: number; delay?: number }): void {
+    const noise = this.getNoise();
+    if (!this.ctx || !this.masterGain || !noise) return;
+    const t0 = this.ctx.currentTime + (opts.delay ?? 0);
+    const src = this.ctx.createBufferSource();
+    src.buffer = noise;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = opts.type;
+    filter.frequency.value = opts.freq;
+    filter.Q.value = opts.q ?? 0.8;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(opts.gain, t0 + opts.attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + opts.attack + opts.decay);
+    src.connect(filter);
+    filter.connect(g);
+    g.connect(this.masterGain);
+    src.start(t0, Math.random() * 1.5);
+    src.stop(t0 + opts.attack + opts.decay + 0.05);
+  }
+
+  private thump(freqFrom: number, freqTo: number, gain: number, dur: number): void {
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freqFrom, now);
+    osc.frequency.exponentialRampToValueAtTime(freqTo, now + dur);
+    g.gain.setValueAtTime(gain, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    osc.connect(g);
+    g.connect(this.masterGain);
+    osc.start(now);
+    osc.stop(now + dur + 0.05);
+  }
+
+  /** Fuse sizzle before a ground cracker goes off */
+  public playFuse(): void {
+    if (!this.ctx || this.isMuted) return;
+    this.noiseBurst({ type: 'bandpass', freq: 5200, q: 1.2, gain: 0.12, attack: 0.02, decay: 0.45 });
+  }
+
+  /** Atom bomb: one enormous, sharp bang with a long rumble */
+  public playAtomBlast(): void {
+    if (!this.ctx || this.isMuted) return;
+    this.playSample('THUNDER_CRACK', 1.0, 0.04);
+    this.playSample('HEAVY_EXPLOSION', 1.0, 0.04);
+    this.noiseBurst({ type: 'highpass', freq: 900, gain: 0.9, attack: 0.002, decay: 0.35 });
+    this.noiseBurst({ type: 'lowpass', freq: 400, gain: 0.8, attack: 0.01, decay: 1.4 });
+    this.thump(95, 22, 1.0, 1.2);
+  }
+
+  /** Hydrogen bomb: two stacked blasts and a long, deep rumble */
+  public playHydrogenBlast(): void {
+    if (!this.ctx || this.isMuted) return;
+    this.playAtomBlast();
+    this.noiseBurst({ type: 'highpass', freq: 700, gain: 0.8, attack: 0.002, decay: 0.4, delay: 0.28 });
+    this.noiseBurst({ type: 'lowpass', freq: 250, gain: 0.9, attack: 0.05, decay: 2.6, delay: 0.1 });
+    window.setTimeout(() => this.thump(80, 18, 1.0, 1.8), 280);
+  }
+
+  /** Chakri: whirring spin */
+  public playChakri(): void {
+    this.playSample('CHAKRI', 0.8, 0.05);
+  }
+
+  /** One small cracker in a ladi: a short, sharp crack */
+  public playCrack(intensity = 1): void {
+    if (!this.ctx || this.isMuted) return;
+    const v = Math.min(1, 0.55 * intensity);
+    this.noiseBurst({ type: 'highpass', freq: 1400 + Math.random() * 1600, gain: v, attack: 0.001, decay: 0.05 + Math.random() * 0.04 });
+    this.noiseBurst({ type: 'bandpass', freq: 400 + Math.random() * 300, q: 1.5, gain: v * 0.6, attack: 0.002, decay: 0.08 });
+  }
+
+  /** Snake tablet: a soft, long hiss (no bang) */
+  public playSnakeFizz(): void {
+    if (!this.ctx || this.isMuted) return;
+    this.noiseBurst({ type: 'bandpass', freq: 2800, q: 0.7, gain: 0.07, attack: 0.4, decay: 3.2 });
   }
 
   private fallbackBoom(volume: number): void {

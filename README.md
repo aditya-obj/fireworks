@@ -31,21 +31,28 @@ Open `http://localhost:5173` in Google Chrome or Arc. Grant camera permission wh
 |---|----------|---------|-------------------|--------------|
 | **1** | **Rocket (Rocket Peony / Willow)** | ☝️ **Index finger pointing up** | Upward climbing streak from fingertip with spark tail; detonates into a dazzling 240-spark spherical peony or drooping golden willow | Ascending frequency whistle ($320\text{Hz} \to 1600\text{Hz}$) $\to$ punchy sub-bass explosion |
 | **2** | **Anar (Flowerpot Fountain)** | ✊ **Closed fist** | Continuous upward conical spray of golden-orange sparks erupting from fist with heavy gravity fallout and crackles | Sustained sizzling white-noise fountain loop with crackle impulses |
-| **3** | **Starburst (Aerial Shell)** | ✋ **Open palm (5 spread)** | Instant radial explosive detonation originating at palm center; dual concentric rings (white-hot core + chromatic perimeter) | Sharp initial pop $\to$ deep $40\text{Hz}$ sub-bass boom |
+| **3** | **Starburst (Aerial Shell)** | ✋ **Open palm (4 fingers up; thumb doesn't matter)** | Instant radial explosive detonation originating at palm center; dual concentric rings (white-hot core + chromatic perimeter) | Sharp initial pop $\to$ deep $40\text{Hz}$ sub-bass boom |
 | **4** | **Roman Candle** | ✌️ **Peace sign (Index + Middle)** | 5 rapid sequential fireballs (Ruby, Emerald, Gold, Blue, Violet) shooting upward, each bursting into 35 twinkling stars | Crisp rhythmic "fwoomp" pops |
-| **5** | **Phooljhadi (Sparkler)** | 👌 **Pinch (Thumb + Index)** | Continuous crackling sparkler following pinch coordinates with branching jitter sparks; enables drawing glowing shapes in mid-air | Granular micro-impulse crackler modulated by hand movement |
-| **6** | **Grand Finale** | 🙏 **Namaste (joined hands)** | Multi-shell salvo cascading across the entire screen, culminating in a glowing "HAPPY DIWALI" centerpiece with ceremonial diyas | Staggered barrage of rocket launches and thunderous booms |
+| **5** | **Phooljhadi (Sparkler)** | 🤏 **Pinch (thumb tip to index tip)** | Continuous crackling sparkler following pinch coordinates with branching jitter sparks; enables drawing glowing shapes in mid-air | Granular micro-impulse crackler modulated by hand movement |
+| **6** | **Atom Bomb (Sutli Bomb)** | 👍 **Thumbs up** | Short fuse sizzle, then a blinding white flash, shockwave ring and screen shake, shreds of green twine and red paper, thick smoke | Fuse hiss $\to$ one huge bang with a long rumble |
+| **7** | **Ladi (1000-wala)** | 🤘 **Rock on (index + pinky)** | A braided string of red crackers bursting from the bottom up in an uneven rapid chain, each with a small flash, sparks, smoke and red confetti | Rapid, irregular sharp cracks |
+| **8** | **Snake Tablet** | 🤙 **Call me (thumb + pinky)** | A smouldering pellet pushes out a long coiling column of grey-black ash, with dense smoke; no bang, no sparks in the air | Soft long hiss |
+| **9** | **Chakri (Ground Spinner)** | **3 fingers up** (index, middle, ring; pinky folded) | Spins on the ground below your hand, throwing sparks off tangentially; speeds up and changes colour as it burns | Whirring spin |
+| **10** | **Pencil** | 👉 **Index pointing sideways** | A narrow coloured jet that follows where your finger points (pointing up = Rocket) | Sizzle |
+| **11** | **Sky Lantern (Akash Kandil)** | 🫰 **Heart: Korean finger heart, or a heart made with both hands** | A glowing paper lantern that drifts up and away, swaying | Silent |
+| **12** | **Hydrogen Bomb** | 👍👍 **Both thumbs up** | Bigger than the Atom Bomb: longer fuse, double blast, full-screen white-out, huge shockwave and a rising mushroom of smoke | Two stacked blasts and a long deep rumble |
+| **13** | **Grand Finale** | 🙏 **Namaste (joined hands)** | Multi-shell salvo cascading across the entire screen, culminating in a glowing "HAPPY DIWALI" centerpiece with ceremonial diyas | Staggered barrage of rocket launches and thunderous booms |
 
 ---
 
 ## ⌨️ Controls & Hotkeys
 
 - **`H` (Creator Mode):** Toggles all UI overlays off for recording clean video reels.
-- **`R` (Record Reel):** Toggles in-browser video recording (combines canvas video + procedural audio into a ready-to-share `.webm` reel, max 30s).
+- **`R` (Record Reel):** Toggles recording (max 30s). Saved to your browser's Downloads folder as `Diwali-Fireworks-<date>.mp4` (or `.webm`). Includes the firework sounds; turn on the mic button to add your voice.
 - **`S` (Postcard Snap):** Captures high-res PNG photo with embossed gold `✨ Happy Diwali ✨` festive watermark.
 - **`D` (Debug Tracker):** Toggles MediaPipe skeletal bone wireframe and landmark dots.
 - **`M` (Mute):** Mutes/unmutes procedural sound synthesis.
-- **`1` – `7` (Manual Triggers):** Direct keyboard triggers for testing each firework type.
+- **`1` – `9` (Manual Triggers):** Keyboard triggers for testing: 1 Rocket, 2 Anar, 3 Starburst, 4 Roman Candle, 5 Phooljhadi, 6 Finale, 7 Atom Bomb, 8 Ladi, 9 Snake, 0 Chakri, P Pencil, L Lantern, B Hydrogen Bomb.
 - **Mouse Click:** Launches a rocket aimed at the click coordinate.
 
 ---

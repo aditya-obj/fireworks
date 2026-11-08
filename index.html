@@ -13,6 +13,15 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <!-- Liquid glass lens: displacement map that is neutral in the middle and
+         bends the backdrop toward the edges (used via backdrop-filter in Chromium) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <filter id="lg-lens" x="0" y="0" width="1" height="1" primitiveUnits="objectBoundingBox" color-interpolation-filters="sRGB">
+        <feImage x="0" y="0" width="1" height="1" preserveAspectRatio="none" result="map"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%20preserveAspectRatio%3D%22none%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22x%22%20x1%3D%220%22%20x2%3D%221%22%20y1%3D%220%22%20y2%3D%220%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23600000%22/%3E%3Cstop%20offset%3D%22.12%22%20stop-color%3D%22%23800000%22/%3E%3Cstop%20offset%3D%22.88%22%20stop-color%3D%22%23800000%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23a00000%22/%3E%3C/linearGradient%3E%3ClinearGradient%20id%3D%22y%22%20x1%3D%220%22%20x2%3D%220%22%20y1%3D%220%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23000%22/%3E%3Cstop%20offset%3D%22.22%22%20stop-color%3D%22%23008000%22/%3E%3Cstop%20offset%3D%22.78%22%20stop-color%3D%22%23008000%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%230f0%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22url%28%23x%29%22/%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22url%28%23y%29%22%20style%3D%22mix-blend-mode%3Ascreen%22/%3E%3C/svg%3E" />
+        <feDisplacementMap in="SourceGraphic" in2="map" scale="0.16" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
     <div id="app">
       <!-- Hidden Video Element for MediaPipe Input -->
       <video id="webcam" playsinline muted autoplay></video>
@@ -20,8 +29,6 @@
       <!-- Main Compositing & Pyrotechnic Canvas -->
       <canvas id="stage"></canvas>
 
-      <!-- Night Sky Atmospheric Vignette -->
-      <div class="vignette-overlay"></div>
 
       <!-- Grand Finale Centerpiece: Shows "HAPPY DIWALI" in center after Grand Finale -->
       <div id="grand-finale-center" class="grand-finale-center hidden">
@@ -51,15 +58,17 @@
       <!-- HUD (toggled with H) -->
       <div id="hud" class="hud-container">
         <header class="hud-header">
-          <div class="brand">
-            <span class="brand-name">Fireworks</span>
-            <span class="brand-sub">Diwali 2k26</span>
-          </div>
+          <!-- The visible title is drawn on the canvas so it's part of every recording -->
+          <h1 class="sr-only">Fireworks, Diwali 2k26</h1>
 
           <div class="header-actions">
             <button id="btn-audio" class="icon-btn lg-glass" title="Sound (M)" aria-label="Toggle sound">
               <svg class="icon icon-sound-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
               <svg class="icon icon-sound-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
+            </button>
+            <button id="btn-mic" class="icon-btn lg-glass" title="Include your voice in recordings" aria-label="Include microphone in recordings" aria-pressed="false">
+              <svg class="icon icon-mic-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5a3 3 0 0 1 6 0v5"/><path d="M15 13.5A3 3 0 0 1 9 11V9"/><path d="M19 11a7 7 0 0 1-1.2 3.9"/><path d="M5 11a7 7 0 0 0 11.1 5.7"/><path d="M12 18v3"/><path d="m3 3 18 18"/></svg>
+              <svg class="icon icon-mic-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
             </button>
             <button id="btn-record" class="record-btn lg-glass" title="Record (R)" aria-label="Record video">
               <span class="record-dot"></span>
@@ -70,14 +79,23 @@
         </header>
 
         <footer class="hud-footer">
-          <ul class="gesture-bar lg-glass" aria-label="Gestures">
+          <div class="gesture-dock lg-glass">
+          <ul class="gesture-bar" aria-label="Gestures">
             <li class="gesture lg-tile" data-gesture="ROCKET"><span class="gesture-glyph">☝️</span><span class="gesture-name">Rocket</span><span class="gesture-sub">Point up</span></li>
             <li class="gesture lg-tile" data-gesture="ANAR"><span class="gesture-glyph">✊</span><span class="gesture-name">Anar</span><span class="gesture-sub">Fist</span></li>
             <li class="gesture lg-tile" data-gesture="STARBURST"><span class="gesture-glyph">✋</span><span class="gesture-name">Starburst</span><span class="gesture-sub">Open palm</span></li>
             <li class="gesture lg-tile" data-gesture="ROMAN_CANDLE"><span class="gesture-glyph">✌️</span><span class="gesture-name">Roman Candle</span><span class="gesture-sub">Peace</span></li>
-            <li class="gesture lg-tile" data-gesture="PHOOLJHADI"><span class="gesture-glyph">👌</span><span class="gesture-name">Phooljhadi</span><span class="gesture-sub">Pinch</span></li>
+            <li class="gesture lg-tile" data-gesture="PHOOLJHADI"><span class="gesture-glyph">🤏</span><span class="gesture-name">Phooljhadi</span><span class="gesture-sub">Pinch</span></li>
+            <li class="gesture lg-tile" data-gesture="ATOM_BOMB"><span class="gesture-glyph">👍</span><span class="gesture-name">Atom Bomb</span><span class="gesture-sub">Thumbs up</span></li>
+            <li class="gesture lg-tile" data-gesture="LADI"><span class="gesture-glyph">🤘</span><span class="gesture-name">Ladi</span><span class="gesture-sub">Rock on</span></li>
+            <li class="gesture lg-tile" data-gesture="SNAKE"><span class="gesture-glyph">🤙</span><span class="gesture-name">Snake</span><span class="gesture-sub">Call me</span></li>
+            <li class="gesture lg-tile" data-gesture="CHAKRI"><span class="gesture-glyph"><svg class="gesture-svg" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="hand-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd85c"/><stop offset="1" stop-color="#f6b434"/></linearGradient></defs><g fill="url(#hand-fill)" stroke="#b9791a" stroke-width=".7" stroke-linejoin="round"><rect x="6.0" y="3.0" width="2.8" height="9.6" rx="1.4" transform="rotate(-6 7.4 12)"/><rect x="9.6" y="1.6" width="2.8" height="11.0" rx="1.4" transform="rotate(-2 11.0 12)"/><rect x="13.2" y="2.4" width="2.8" height="10.2" rx="1.4" transform="rotate(2 14.6 12)"/><rect x="16.6" y="9.8" width="2.8" height="3.6" rx="1.4"/><path d="M5.8 11.4h13.8v4.4c0 3.5-2.7 6.2-6.1 6.2h-1.5c-3.4 0-6.2-2.7-6.2-6.2z"/><path d="M4.6 14.6c2-.8 4.4-.6 7 .6 1.1.5.9 2-.3 2.2-2.2.4-4.4 0-6.2-.9-.9-.5-1.2-1.5-.5-1.9z"/></g></svg></span><span class="gesture-name">Chakri</span><span class="gesture-sub">3 fingers</span></li>
+            <li class="gesture lg-tile" data-gesture="PENCIL"><span class="gesture-glyph">👉</span><span class="gesture-name">Pencil</span><span class="gesture-sub">Point sideways</span></li>
+            <li class="gesture lg-tile" data-gesture="SKY_LANTERN"><span class="gesture-glyph">🫰</span><span class="gesture-name">Lantern</span><span class="gesture-sub">Heart</span></li>
+            <li class="gesture lg-tile" data-gesture="HYDROGEN_BOMB"><span class="gesture-glyph">👍👍</span><span class="gesture-name">Hydrogen</span><span class="gesture-sub">Both thumbs up</span></li>
             <li class="gesture lg-tile" data-gesture="GRAND_FINALE"><span class="gesture-glyph">🙏</span><span class="gesture-name">Finale</span><span class="gesture-sub">Namaste</span></li>
           </ul>
+          </div>
         </footer>
       </div>
 
