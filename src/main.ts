@@ -4,6 +4,7 @@ import { VisionEngine } from './vision/visionEngine';
 import { FireworkDirector } from './fireworks/fireworkDirector';
 import { PyroAudioEngine } from './audio/pyroAudioEngine';
 import { CaptureEngine } from './capture/captureEngine';
+import type { DetectedGesture, GestureType } from './vision/gestureTypes';
 
 class FireworksApp {
   private compositor: VideoCompositor;
@@ -38,6 +39,8 @@ class FireworksApp {
   private reelDialogCloseBtn: HTMLElement;
 
   private isCreatorMode: boolean = false;
+  /** Crackers lit by tapping an icon / pressing a key; continuous ones run for a while */
+  private manualHolds: Map<GestureType, { until: number; gesture: DetectedGesture }> = new Map();
   private guideBar: HTMLElement | null = null;
   private guideNear = false;
   private lastFrameTime: number = performance.now();
@@ -256,38 +259,36 @@ class FireworksApp {
       if (e.key === 's' || e.key === 'S') takeSnap();
       if (e.key === 'r' || e.key === 'R') toggleRecording();
 
-      // Manual Testing Keys (1 to 9)
-      const w = this.compositor.width;
-      const h = this.compositor.height;
-      const center = { x: w / 2, y: h / 2 };
+      // Keyboard shortcuts (same as tapping the guide icons)
+      const keyMap: Record<string, GestureType> = {
+        '1': 'ROCKET', '2': 'ANAR', '3': 'STARBURST', '4': 'ROMAN_CANDLE', '5': 'PHOOLJHADI',
+        '6': 'GRAND_FINALE', '7': 'ATOM_BOMB', '8': 'LADI', '9': 'SNAKE', '0': 'CHAKRI',
+        l: 'SKY_LANTERN', b: 'HYDROGEN_BOMB', p: 'PENCIL'
+      };
+      const type = keyMap[e.key.toLowerCase()];
+      if (type && !e.repeat) this.fireManual(type);
+    });
 
-      if (e.key === '1') {
-        this.director.handleGestures([{ type: 'ROCKET', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.8 }, handIndex: 0, isContinuous: false }], w, h);
-      } else if (e.key === '2') {
-        this.director.handleGestures([{ type: 'ANAR', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.75 }, handIndex: 0, isContinuous: true }], w, h);
-      } else if (e.key === '3') {
-        this.director.handleGestures([{ type: 'STARBURST', confidence: 1, triggerPoint: center, handIndex: 0, isContinuous: false }], w, h);
-      } else if (e.key === '4') {
-        this.director.handleGestures([{ type: 'ROMAN_CANDLE', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.7 }, handIndex: 0, isContinuous: false }], w, h);
-      } else if (e.key === '5') {
-        this.director.handleGestures([{ type: 'PHOOLJHADI', confidence: 1, triggerPoint: center, handIndex: 0, isContinuous: true }], w, h);
-      } else if (e.key === '6') {
-        this.triggerGrandFinale(w, h);
-      } else if (e.key === '7') {
-        this.director.handleGestures([{ type: 'ATOM_BOMB', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.7 }, handIndex: 0, isContinuous: false }], w, h);
-      } else if (e.key === '8') {
-        this.director.handleGestures([{ type: 'LADI', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.25 }, handIndex: 0, isContinuous: false }], w, h);
-      } else if (e.key === '9') {
-        this.director.handleGestures([{ type: 'SNAKE', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.8 }, handIndex: 0, isContinuous: false }], w, h);
-      } else if (e.key === '0') {
-        this.director.handleGestures([{ type: 'CHAKRI', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.6 }, handIndex: 0, isContinuous: false }], w, h);
-      } else if (e.key === 'l' || e.key === 'L') {
-        this.director.handleGestures([{ type: 'SKY_LANTERN', confidence: 1, triggerPoint: { x: w * (0.3 + Math.random() * 0.4), y: h * 0.75 }, handIndex: 0, isContinuous: false }], w, h);
-      } else if (e.key === 'b' || e.key === 'B') {
-        this.director.handleGestures([{ type: 'HYDROGEN_BOMB', confidence: 1, triggerPoint: { x: w * 0.5, y: h * 0.7 }, handIndex: -2, isContinuous: false }], w, h);
-      } else if (e.key === 'p' || e.key === 'P') {
-        this.director.handleGestures([{ type: 'PENCIL', confidence: 1, triggerPoint: { x: w * 0.3, y: h * 0.6 }, handIndex: 0, isContinuous: true, direction: { x: 1, y: -0.4 } }], w, h);
-      }
+    // Tap (or click / Enter) a gesture icon in the guide to light that cracker
+    document.querySelectorAll<HTMLElement>('.gesture[data-gesture]').forEach((el) => {
+      el.setAttribute('role', 'button');
+      el.tabIndex = 0;
+      el.title = `Tap to light ${el.querySelector('.gesture-name')?.textContent ?? ''}`;
+      const fire = () => {
+        this.audio.unlock();
+        this.fireManual(el.dataset.gesture as GestureType);
+        el.classList.remove('is-tapped');
+        void el.offsetWidth; // restart the tap animation
+        el.classList.add('is-tapped');
+      };
+      el.addEventListener('click', fire);
+      el.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          ev.stopPropagation();
+          fire();
+        }
+      });
     });
 
     // NOTE: Mouse click rocket trigger intentionally removed per user request.
@@ -360,6 +361,56 @@ class FireworksApp {
       window.setTimeout(() => intro.remove(), 450);
       await visionReady;
     });
+  }
+
+  /** Light a cracker without a hand gesture (tap on the guide, or keyboard) */
+  private fireManual(type: GestureType): void {
+    const w = this.compositor.width;
+    const h = this.compositor.height;
+    const rx = () => w * (0.3 + Math.random() * 0.4);
+    if (type === 'GRAND_FINALE') {
+      this.triggerGrandFinale(w, h);
+      return;
+    }
+    const points: Partial<Record<GestureType, { x: number; y: number }>> = {
+      ROCKET: { x: rx(), y: h * 0.8 },
+      ANAR: { x: w * 0.5, y: h * 0.72 },
+      STARBURST: { x: rx(), y: h * (0.3 + Math.random() * 0.2) },
+      ROMAN_CANDLE: { x: rx(), y: h * 0.72 },
+      PHOOLJHADI: { x: w * 0.5, y: h * 0.5 },
+      ATOM_BOMB: { x: rx(), y: h * 0.62 },
+      HYDROGEN_BOMB: { x: w * 0.5, y: h * 0.6 },
+      LADI: { x: rx(), y: h * 0.18 },
+      SNAKE: { x: rx(), y: h * 0.72 },
+      CHAKRI: { x: rx(), y: h * 0.62 },
+      SKY_LANTERN: { x: rx(), y: h * 0.72 },
+      PENCIL: { x: w * 0.25, y: h * 0.6 }
+    };
+    const continuous = type === 'ANAR' || type === 'PHOOLJHADI' || type === 'PENCIL';
+    const gesture: DetectedGesture = {
+      type,
+      confidence: 1,
+      triggerPoint: points[type] ?? { x: w / 2, y: h / 2 },
+      handIndex: 10, // separate from real hands (0/1) so they don't interfere
+      isContinuous: continuous,
+      direction: type === 'PENCIL' ? { x: 1, y: -0.45 } : undefined
+    };
+    if (continuous) {
+      // keep it burning for a couple of seconds (fed to the director every frame)
+      this.manualHolds.set(type, { until: performance.now() + 2200, gesture });
+    } else {
+      this.director.handleGestures([gesture, ...this.activeManual()], w, h);
+    }
+  }
+
+  private activeManual(): DetectedGesture[] {
+    const now = performance.now();
+    const out: DetectedGesture[] = [];
+    for (const [type, m] of this.manualHolds) {
+      if (now > m.until) this.manualHolds.delete(type);
+      else out.push(m.gesture);
+    }
+    return out;
   }
 
   private updateGuideFade(): void {
@@ -446,7 +497,7 @@ class FireworksApp {
     } else {
       // 3. Dispatch other active gestures to Firework Director
       this.director.handleGestures(
-        activeGestures,
+        [...activeGestures, ...this.activeManual()],
         this.compositor.width,
         this.compositor.height
       );
