@@ -32,10 +32,7 @@ export class VideoCompositor {
     if (options.contrast !== undefined) this.contrast = options.contrast;
 
     this.resize();
-    window.addEventListener('resize', () => {
-      this.resize();
-      void this.refitOrientation();
-    });
+    window.addEventListener('resize', () => this.resize());
     // mobile browsers resize the visible area when their toolbar shows/hides
     window.visualViewport?.addEventListener('resize', () => this.resize());
   }
@@ -66,12 +63,16 @@ export class VideoCompositor {
       throw new Error('Camera API (getUserMedia) unavailable in this browser');
     }
 
-    // Ask for the camera in the same orientation as the screen. On an upright
-    // phone a landscape request gives a wide image that then has to be cropped
-    // hard to fill the tall screen (looks zoomed-in); a portrait request doesn't.
-    this.portrait = this.isPortrait();
+    // Ask for the camera's full resolution in its native (landscape) shape and
+    // the widest zoom. Note: asking for a portrait image on phones made Android
+    // crop the sensor and zoom in further, so the same request is used everywhere.
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { ...this.sizeConstraints(this.portrait), frameRate: { ideal: 60 }, facingMode: 'user' },
+      video: {
+        width: { ideal: 3840 },
+        height: { ideal: 2160 },
+        frameRate: { ideal: 60 },
+        facingMode: 'user'
+      },
       audio: false
     });
 
@@ -80,14 +81,14 @@ export class VideoCompositor {
       const caps = track.getCapabilities?.() as MediaTrackCapabilities & { zoom?: { min: number } };
       const advanced: Record<string, number>[] = [];
       if (caps?.zoom) advanced.push({ zoom: caps.zoom.min }); // widest field of view
-      // Landscape screens: lock to the camera's full resolution. (Skipped in portrait:
-      // capabilities are reported in sensor/landscape terms and would force a wide crop.)
-      const full = !this.portrait && caps?.width?.max && caps?.height?.max
-        ? { width: { ideal: caps.width.max }, height: { ideal: caps.height.max } }
-        : {};
-      await track.applyConstraints({ ...full, frameRate: { ideal: 60 }, advanced: advanced as MediaTrackConstraintSet[] });
+      await track.applyConstraints({
+        width: caps?.width?.max ? { ideal: caps.width.max } : undefined,
+        height: caps?.height?.max ? { ideal: caps.height.max } : undefined,
+        frameRate: { ideal: 60 },
+        advanced: advanced as MediaTrackConstraintSet[]
+      });
     } catch (err) {
-      console.warn('Could not apply camera constraints:', err);
+      console.warn('Could not apply max camera constraints:', err);
     }
     const settings = track.getSettings();
     console.info(`Camera: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
@@ -97,31 +98,6 @@ export class VideoCompositor {
     await this.video.play();
     this.isCameraReady = true;
     return stream;
-  }
-
-  private portrait = false;
-
-  private isPortrait(): boolean {
-    return window.innerHeight > window.innerWidth;
-  }
-
-  private sizeConstraints(portrait: boolean): MediaTrackConstraints {
-    return portrait
-      ? { width: { ideal: 1080 }, height: { ideal: 1920 } }
-      : { width: { ideal: 3840 }, height: { ideal: 2160 } };
-  }
-
-  /** When the phone is rotated, ask the camera for the new orientation */
-  private async refitOrientation(): Promise<void> {
-    const track = this.stream?.getVideoTracks()[0];
-    const portrait = this.isPortrait();
-    if (!track || portrait === this.portrait) return;
-    this.portrait = portrait;
-    try {
-      await track.applyConstraints({ ...this.sizeConstraints(portrait), frameRate: { ideal: 60 } });
-    } catch (err) {
-      console.warn('Could not re-fit camera after rotation:', err);
-    }
   }
 
   public stopCamera(): void {
