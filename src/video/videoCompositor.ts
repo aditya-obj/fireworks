@@ -35,13 +35,22 @@ export class VideoCompositor {
     window.addEventListener('resize', () => this.resize());
     // mobile browsers resize the visible area when their toolbar shows/hides
     window.visualViewport?.addEventListener('resize', () => this.resize());
+    // Re-fit whenever the canvas box itself changes size. Important on slow
+    // connections: the app can start before the stylesheet loads, when the
+    // canvas is still the browser's default 300×150 — without this it stays
+    // set up for that tiny box and gets stretched (looks zoomed and soft).
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(() => this.resize()).observe(this.canvas);
+    }
   }
 
   public resize(): void {
     // match the stage element (sized to the visible area via 100dvh)
     const box = this.canvas.getBoundingClientRect();
-    this.width = Math.round(box.width) || window.innerWidth;
-    this.height = Math.round(box.height) || window.innerHeight;
+    // Until the stylesheet applies, the box is the default 300×150: use the window
+    const styled = box.width > 300 || box.height > 150;
+    this.width = styled ? Math.round(box.width) : window.innerWidth;
+    this.height = styled ? Math.round(box.height) : window.innerHeight;
 
     // Render at device pixel ratio for a crisp image on retina screens,
     // capped at ~2560x1440 worth of pixels to keep 60fps rendering & recording.
