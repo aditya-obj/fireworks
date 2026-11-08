@@ -170,7 +170,7 @@ export class CaptureEngine {
     tCtx.fillStyle = '#E2E8F0';
     tCtx.shadowBlur = 0;
     tCtx.font = `${Math.max(12, tempCanvas.width * 0.012)}px "Inter", sans-serif`;
-    tCtx.fillText('Fireworks 2026', tempCanvas.width - pad, tempCanvas.height - pad);
+    tCtx.fillText('Fireworks 2k26', tempCanvas.width - pad, tempCanvas.height - pad);
     tCtx.restore();
 
     tempCanvas.toBlob((blob) => {

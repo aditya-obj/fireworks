@@ -242,6 +242,75 @@ button {
 }
 
 /* ============================================================
+   LIQUID GLASS
+   ============================================================ */
+.glass {
+  --glass-tint: rgba(18, 20, 28, 0.18);
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 45%, rgba(255, 255, 255, 0.08) 100%),
+    var(--glass-tint);
+  -webkit-backdrop-filter: blur(14px) saturate(190%) brightness(1.04);
+  backdrop-filter: blur(14px) saturate(190%) brightness(1.04);
+  border: none;
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0.5px rgba(255, 255, 255, 0.12),
+    inset 0 0 18px rgba(255, 255, 255, 0.06),
+    0 10px 30px rgba(0, 0, 0, 0.28),
+    0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Chromium: real refraction through an SVG displacement filter */
+.refract .glass {
+  backdrop-filter: url(#liquid-refract) blur(10px) saturate(190%) brightness(1.04);
+}
+
+/* Specular rim: bright top-left edge fading to a faint bottom-right edge */
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.75) 0%,
+    rgba(255, 255, 255, 0.18) 30%,
+    rgba(255, 255, 255, 0.04) 55%,
+    rgba(255, 255, 255, 0.22) 85%,
+    rgba(255, 255, 255, 0.45) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Soft inner glare across the top half */
+.glass::after {
+  content: "";
+  position: absolute;
+  inset: 1px 1px 50% 1px;
+  border-radius: inherit;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.14), transparent);
+  pointer-events: none;
+  z-index: -1;
+}
+
+button.glass {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s var(--ease);
+}
+
+button.glass:hover {
+  filter: brightness(1.12);
+}
+
+button.glass:active {
+  transform: scale(0.94);
+}
+
+/* ============================================================
    HUD
    ============================================================ */
 .hud-container {
@@ -252,7 +321,7 @@ button {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 24px 28px;
+  padding: 22px 26px;
   transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
 }
 
@@ -263,58 +332,52 @@ button {
 
 .hud-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   pointer-events: auto;
 }
 
 .brand {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 18px 11px;
+  border-radius: 20px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
 }
 
 .brand-name {
   font-family: var(--font-display);
-  font-size: 30px;
-  line-height: 1;
+  font-size: 28px;
+  line-height: 0.95;
   letter-spacing: -0.01em;
-  color: var(--text);
+  color: #fff;
 }
 
 .brand-sub {
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--accent);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .icon-btn,
 .record-btn,
 .restore-hud-btn {
-  height: 40px;
+  height: 44px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  color: #fff;
   cursor: pointer;
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
-}
-
-.icon-btn:hover,
-.record-btn:hover,
-.restore-hud-btn:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
 }
 
 .icon-btn:focus-visible,
@@ -322,18 +385,19 @@ button {
 .restore-hud-btn:focus-visible,
 .hud-btn:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .icon-btn {
-  width: 40px;
+  width: 44px;
   display: grid;
   place-items: center;
 }
 
 .icon {
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.3));
 }
 
 .icon-btn .icon-sound-off,
@@ -346,15 +410,15 @@ button {
 }
 
 .icon-btn.is-muted {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .record-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 16px 0 14px;
-  font-size: 13px;
+  gap: 9px;
+  padding: 0 18px 0 16px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -363,12 +427,12 @@ button {
   height: 10px;
   border-radius: 50%;
   background: var(--rec);
-  transition: border-radius 0.2s var(--ease), transform 0.2s var(--ease);
+  box-shadow: 0 0 8px rgba(255, 77, 79, 0.7);
+  transition: border-radius 0.2s var(--ease);
 }
 
 .record-btn.recording {
-  border-color: rgba(255, 77, 79, 0.55);
-  background: rgba(255, 77, 79, 0.16);
+  --glass-tint: rgba(255, 60, 60, 0.28);
 }
 
 .record-btn.recording .record-dot {
@@ -384,7 +448,7 @@ button {
   display: none;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.8);
   font-variant-numeric: tabular-nums;
 }
 
@@ -405,71 +469,65 @@ button {
   align-items: stretch;
   padding: 6px;
   gap: 2px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  box-shadow: var(--shadow);
+  border-radius: 24px;
   max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
 .gesture {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: auto auto;
   grid-template-rows: auto auto;
   column-gap: 10px;
   align-items: center;
-  padding: 8px 14px 8px 10px;
-  border-radius: 10px;
-  transition: background 0.2s var(--ease);
+  padding: 8px 16px 8px 12px;
+  border-radius: 18px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  transition: background 0.25s var(--ease), box-shadow 0.25s var(--ease);
 }
 
 .gesture-glyph {
   grid-row: 1 / span 2;
-  font-size: 18px;
+  font-size: 19px;
   line-height: 1;
-  filter: grayscale(0.25);
-  transition: filter 0.2s var(--ease), transform 0.2s var(--ease);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .gesture-name {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
+  font-weight: 600;
+  color: #fff;
   white-space: nowrap;
 }
 
 .gesture-sub {
   font-size: 11px;
-  color: var(--text-faint);
+  color: rgba(255, 255, 255, 0.65);
   white-space: nowrap;
 }
 
+/* Active gesture: a brighter glass droplet inside the bar */
 .gesture.is-active {
-  background: var(--accent-soft);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08));
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.7), 0 4px 14px rgba(0, 0, 0, 0.2);
 }
 
 .gesture.is-active .gesture-glyph {
-  filter: none;
-  transform: scale(1.12);
-}
-
-.gesture.is-active .gesture-name {
-  color: var(--accent);
+  transform: scale(1.15);
 }
 
 .restore-hud-btn {
   position: absolute;
-  top: 24px;
-  right: 28px;
+  top: 22px;
+  right: 26px;
   z-index: 20;
-  padding: 0 16px;
+  padding: 0 18px;
   font-size: 13px;
   font-weight: 500;
-  opacity: 0.35;
+  opacity: 0.45;
 }
 
 .restore-hud-btn:hover {
@@ -486,20 +544,20 @@ button {
 .reel-preview {
   position: fixed;
   z-index: 40;
-  top: 76px;
-  right: 28px;
-  width: min(260px, calc(100vw - 32px));
+  top: 84px;
+  right: 26px;
+  width: min(270px, calc(100vw - 32px));
   padding: 8px;
-  border-radius: 16px;
-  background: var(--surface-strong);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  border-radius: 22px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  animation: slide-in 0.3s var(--ease);
+  animation: slide-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.reel-preview > * {
+  position: relative;
+  z-index: 2;
 }
 
 .reel-preview.hidden {
@@ -507,7 +565,7 @@ button {
 }
 
 @keyframes slide-in {
-  from { opacity: 0; transform: translateY(-6px); }
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
   to { opacity: 1; transform: none; }
 }
 
@@ -519,7 +577,7 @@ button {
   border: none;
   cursor: pointer;
   background: #000;
-  border-radius: 10px;
+  border-radius: 15px;
   overflow: hidden;
   display: block;
 }
@@ -536,7 +594,7 @@ button {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.3);
   font-size: 13px;
   font-weight: 500;
   opacity: 0;
@@ -550,13 +608,13 @@ button {
 .reel-card-meta {
   display: flex;
   justify-content: flex-end;
-  padding: 0 4px;
+  padding: 0 6px;
 }
 
 .reel-duration {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.75);
   font-variant-numeric: tabular-nums;
 }
 
@@ -566,23 +624,27 @@ button {
 }
 
 .hud-btn {
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.35);
+  color: #fff;
   cursor: pointer;
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+  transition: background 0.2s var(--ease), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .hud-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.hud-btn:active {
+  transform: scale(0.95);
 }
 
 .hud-btn-label {
   flex: 1;
-  height: 32px;
+  height: 34px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
@@ -591,19 +653,18 @@ button {
 .btn-save,
 .hud-btn-download {
   background: var(--accent);
-  border-color: transparent;
   color: #1a1206;
   font-weight: 600;
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.6), 0 4px 14px rgba(255, 181, 71, 0.3);
 }
 
 .btn-save:hover,
 .hud-btn-download:hover {
   background: #ffc46b;
-  border-color: transparent;
 }
 
 .btn-dismiss {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .reel-dialog {
@@ -612,61 +673,66 @@ button {
   border: none;
   background: transparent;
   color: var(--text);
-  max-width: min(720px, calc(100vw - 32px));
+  max-width: min(760px, calc(100vw - 32px));
   width: 100%;
+  overflow: visible;
 }
 
 .reel-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .reel-dialog-card {
-  background: #111216;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  --glass-tint: rgba(16, 18, 26, 0.5);
+  border-radius: 28px;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
+.reel-dialog-card > * {
+  position: relative;
+  z-index: 2;
+}
+
 .reel-dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0 4px;
 }
 
 .reel-dialog-title {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .reel-dialog-close {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border: none;
-  border-radius: 8px;
-  background: none;
-  color: var(--text-muted);
-  font-size: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+  transition: background 0.2s var(--ease);
 }
 
 .reel-dialog-close:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .reel-dialog-video-wrapper {
   width: 100%;
   aspect-ratio: 16 / 9;
   background: #000;
-  border-radius: 12px;
+  border-radius: 18px;
   overflow: hidden;
 }
 
@@ -683,23 +749,23 @@ button {
 }
 
 .hud-btn-download {
-  height: 40px;
-  padding: 0 20px;
-  border-radius: 10px;
+  height: 42px;
+  padding: 0 22px;
+  border-radius: 999px;
   font-size: 14px;
 }
 
 @media (max-width: 860px) {
   .hud-container {
-    padding: 16px;
+    padding: 14px;
   }
   .restore-hud-btn {
-    top: 16px;
-    right: 16px;
+    top: 14px;
+    right: 14px;
   }
   .reel-preview {
-    top: 64px;
-    right: 16px;
+    top: 72px;
+    right: 14px;
   }
   .gesture-sub {
     display: none;
@@ -716,14 +782,17 @@ button {
   .gesture-name {
     font-size: 11px;
   }
+  .brand {
+    padding: 8px 14px 9px;
+  }
   .brand-name {
-    font-size: 24px;
+    font-size: 22px;
   }
   .record-btn .btn-label {
     display: none;
   }
   .record-btn {
-    padding: 0 14px;
+    padding: 0 16px;
   }
   .garland-flower {
     width: 36px;

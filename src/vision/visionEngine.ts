@@ -78,7 +78,10 @@ export class VisionEngine {
   /**
    * Process a new video frame and extract poses & gestures
    */
-  public update(video: HTMLVideoElement, screenW: number, screenH: number): DetectedGesture[] {
+  public update(
+    video: HTMLVideoElement,
+    rect: { x: number; y: number; w: number; h: number }
+  ): DetectedGesture[] {
     if (!this.isReady || !this.landmarker || video.readyState < 2) {
       return [];
     }
@@ -89,8 +92,8 @@ export class VisionEngine {
       this.lastVideoTime = currentTime;
       const now = performance.now();
       const result: HandLandmarkerResult = this.landmarker.detectForVideo(video, now);
-      this.detectedHands = this.parsePoses(result, screenW, screenH);
-      this.activeGestures = this.classifier.classify(this.detectedHands, screenW);
+      this.detectedHands = this.parsePoses(result, rect);
+      this.activeGestures = this.classifier.classify(this.detectedHands, rect.w);
     }
 
     return this.activeGestures;
@@ -102,9 +105,9 @@ export class VisionEngine {
    */
   private parsePoses(
     result: HandLandmarkerResult,
-    screenW: number,
-    screenH: number
+    rect: { x: number; y: number; w: number; h: number }
   ): HandPose[] {
+    const screenW = rect.w;
     const hands: HandPose[] = [];
 
     result.landmarks.forEach((rawMarks, idx) => {
@@ -114,8 +117,8 @@ export class VisionEngine {
 
       // Transform normalized coords into mirrored screen pixels
       const screenMarks: ScreenLandmark[] = rawMarks.map((lm) => ({
-        x: (1 - lm.x) * screenW, // Horizontal mirror
-        y: lm.y * screenH,
+        x: rect.x + (1 - lm.x) * rect.w, // Horizontal mirror, mapped into the drawn video frame
+        y: rect.y + lm.y * rect.h,
         z: lm.z
       }));
 

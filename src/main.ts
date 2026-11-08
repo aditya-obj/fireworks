@@ -304,8 +304,7 @@ class FireworksApp {
     // 2. Process vision frame
     const activeGestures = this.vision.update(
       this.compositor.video,
-      this.compositor.width,
-      this.compositor.height
+      this.compositor.getVideoRect()
     );
 
     // Highlight the detected gesture(s) in the guide
@@ -336,5 +335,8 @@ class FireworksApp {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Chromium supports SVG filters in backdrop-filter, which gives the glass real refraction
+  const isChromium = !!(navigator as Navigator & { userAgentData?: unknown }).userAgentData;
+  if (isChromium) document.documentElement.classList.add('refract');
   new FireworksApp();
 });

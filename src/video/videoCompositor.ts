@@ -59,16 +59,33 @@ export class VideoCompositor {
       throw new Error('Camera API (getUserMedia) unavailable in this browser');
     }
 
-    // Request HD; MediaPipe downsamples internally so tracking cost stays low
+    // Ask for the highest resolution the camera offers, then lock to its max
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        width: { ideal: 3840 },
+        height: { ideal: 2160 },
         frameRate: { ideal: 60 },
         facingMode: 'user'
       },
       audio: false
     });
+
+    const track = stream.getVideoTracks()[0];
+    try {
+      const caps = track.getCapabilities?.() as MediaTrackCapabilities & { zoom?: { min: number } };
+      const advanced: Record<string, number>[] = [];
+      if (caps?.zoom) advanced.push({ zoom: caps.zoom.min }); // widest field of view
+      await track.applyConstraints({
+        width: caps?.width?.max ? { ideal: caps.width.max } : undefined,
+        height: caps?.height?.max ? { ideal: caps.height.max } : undefined,
+        frameRate: { ideal: 60 },
+        advanced: advanced as MediaTrackConstraintSet[]
+      });
+    } catch (err) {
+      console.warn('Could not apply max camera constraints:', err);
+    }
+    const settings = track.getSettings();
+    console.info(`Camera: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
 
     this.stream = stream;
     this.video.srcObject = stream;
@@ -87,56 +104,64 @@ export class VideoCompositor {
   }
 
   /**
-   * Draws the mirrored, atmospheric night-sky webcam background
+   * Screen-space rectangle (CSS px, unmirrored) the camera frame occupies.
+   * The whole frame is shown ("contain"), so nothing is cropped or zoomed.
+   */
+  public getVideoRect(): { x: number; y: number; w: number; h: number } {
+    const { width, height, video } = this;
+    if (!video.videoWidth) return { x: 0, y: 0, w: width, h: height };
+    const videoRatio = video.videoWidth / video.videoHeight;
+    if (width / height > videoRatio) {
+      const w = height * videoRatio;
+      return { x: (width - w) / 2, y: 0, w, h: height };
+    }
+    const h = width / videoRatio;
+    return { x: 0, y: (height - h) / 2, w: width, h };
+  }
+
+  private fillCanvas: HTMLCanvasElement = document.createElement('canvas');
+
+  /**
+   * Draws the mirrored camera frame uncropped, with a soft blurred copy
+   * filling any letterbox space so the stage stays edge-to-edge.
    */
   public drawBackground(): void {
     const { ctx, width, height, video } = this;
 
-    // Reset transform & composite operation
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
-
-    // 1. Fill deep midnight dark background
-    ctx.fillStyle = '#040714';
+    ctx.fillStyle = '#05060a';
     ctx.fillRect(0, 0, width, height);
 
-    // 2. Draw webcam video if available
     if (this.isCameraReady && video.videoWidth > 0) {
-      ctx.save();
-      // Mirror horizontally so gestures feel natural (like looking in a mirror)
+      const rect = this.getVideoRect();
+      const grade = `brightness(${this.dimming}) contrast(${this.contrast}) saturate(1.05)`;
+
       ctx.translate(width, 0);
       ctx.scale(-1, 1);
+      // Mirrored x for the rect
+      const mx = width - rect.x - rect.w;
 
-      // Aspect-ratio cover calculation
-      const videoRatio = video.videoWidth / video.videoHeight;
-      const screenRatio = width / height;
-      let drawW: number;
-      let drawH: number;
-      let drawX: number;
-      let drawY: number;
-
-      if (screenRatio > videoRatio) {
-        drawW = width;
-        drawH = width / videoRatio;
-        drawX = 0;
-        drawY = (height - drawH) / 2;
-      } else {
-        drawH = height;
-        drawW = height * videoRatio;
-        drawX = (width - drawW) / 2;
-        drawY = 0;
+      // Letterbox fill: tiny downscaled copy stretched to cover = cheap blur
+      if (rect.w < width - 1 || rect.h < height - 1) {
+        const fc = this.fillCanvas;
+        fc.width = 48;
+        fc.height = Math.max(1, Math.round(48 * (video.videoHeight / video.videoWidth)));
+        fc.getContext('2d')!.drawImage(video, 0, 0, fc.width, fc.height);
+        const cover = Math.max(width / rect.w, height / rect.h);
+        const cw = rect.w * cover;
+        const ch = rect.h * cover;
+        ctx.filter = 'brightness(0.45) saturate(1.2)';
+        ctx.drawImage(fc, (width - cw) / 2, (height - ch) / 2, cw, ch);
       }
 
-      // Atmospheric Night-Sky Filter: dimming + contrast + slight blue tint
-      ctx.filter = `brightness(${this.dimming}) contrast(${this.contrast}) saturate(1.05)`;
-      ctx.drawImage(video, drawX, drawY, drawW, drawH);
+      ctx.filter = grade;
+      ctx.drawImage(video, mx, rect.y, rect.w, rect.h);
       ctx.filter = 'none';
 
       // Subtle cool night tint
       ctx.fillStyle = 'rgba(8, 12, 30, 0.12)';
       ctx.fillRect(0, 0, width, height);
-
-      ctx.restore();
     }
 
     ctx.restore();

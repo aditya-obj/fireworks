@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>🎆 Fireworks — Diwali 2026</title>
+    <title>Fireworks 2k26</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -13,6 +13,13 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <filter id="liquid-refract" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.006 0.012" numOctaves="2" seed="7" result="noise" />
+        <feGaussianBlur in="noise" stdDeviation="2" result="soft" />
+        <feDisplacementMap in="SourceGraphic" in2="soft" scale="26" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
     <div id="app">
       <!-- Hidden Video Element for MediaPipe Input -->
       <video id="webcam" playsinline muted autoplay></video>
@@ -51,17 +58,17 @@
       <!-- HUD (toggled with H) -->
       <div id="hud" class="hud-container">
         <header class="hud-header">
-          <div class="brand">
+          <div class="brand glass">
             <span class="brand-name">Fireworks</span>
-            <span class="brand-sub">Diwali 2026</span>
+            <span class="brand-sub">2k26</span>
           </div>
 
           <div class="header-actions">
-            <button id="btn-audio" class="icon-btn" title="Sound (M)" aria-label="Toggle sound">
+            <button id="btn-audio" class="icon-btn glass" title="Sound (M)" aria-label="Toggle sound">
               <svg class="icon icon-sound-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
               <svg class="icon icon-sound-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
             </button>
-            <button id="btn-record" class="record-btn" title="Record (R)" aria-label="Record video">
+            <button id="btn-record" class="record-btn glass" title="Record (R)" aria-label="Record video">
               <span class="record-dot"></span>
               <span id="record-label" class="btn-label">Record</span>
               <span id="record-timer" class="record-timer">00:00</span>
@@ -70,7 +77,7 @@
         </header>
 
         <footer class="hud-footer">
-          <ul class="gesture-bar" aria-label="Gestures">
+          <ul class="gesture-bar glass" aria-label="Gestures">
             <li class="gesture" data-gesture="ROCKET"><span class="gesture-glyph">☝️</span><span class="gesture-name">Rocket</span><span class="gesture-sub">Point up</span></li>
             <li class="gesture" data-gesture="ANAR"><span class="gesture-glyph">✊</span><span class="gesture-name">Anar</span><span class="gesture-sub">Fist</span></li>
             <li class="gesture" data-gesture="STARBURST"><span class="gesture-glyph">✋</span><span class="gesture-name">Starburst</span><span class="gesture-sub">Open palm</span></li>
@@ -82,10 +89,10 @@
       </div>
 
       <!-- Shown when HUD is hidden with H -->
-      <button id="btn-restore-hud" class="restore-hud-btn hidden" title="Show controls (H)">Show controls</button>
+      <button id="btn-restore-hud" class="restore-hud-btn glass hidden" title="Show controls (H)">Show controls</button>
 
       <!-- Recorded reel preview -->
-      <aside id="reel-preview-card" class="reel-preview hidden" aria-label="Recorded Diwali Reel">
+      <aside id="reel-preview-card" class="reel-preview glass hidden" aria-label="Recorded Diwali Reel">
         <button type="button" id="reel-preview-thumb-btn" class="reel-thumb-btn" aria-label="Open full reel preview">
           <video id="reel-preview-video" playsinline loop muted autoplay></video>
           <div class="reel-play-overlay"><span>View</span></div>
@@ -102,7 +109,7 @@
 
       <!-- Full reel dialog -->
       <dialog id="reel-dialog" class="reel-dialog" aria-label="Diwali Reel Player">
-        <div class="reel-dialog-card">
+        <div class="reel-dialog-card glass">
           <div class="reel-dialog-header">
             <div class="reel-dialog-title">
               <span>Your reel</span>
