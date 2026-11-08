@@ -290,7 +290,6 @@ class FireworksApp {
     const intro = document.getElementById('intro') as HTMLElement;
     const startBtn = document.getElementById('intro-start') as HTMLButtonElement;
     const note = document.getElementById('intro-note') as HTMLElement;
-    startBtn.focus();
 
     startBtn.addEventListener('click', async () => {
       this.audio.unlock();
