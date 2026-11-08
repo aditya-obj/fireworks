@@ -45,8 +45,11 @@ button {
 
 #app {
   position: relative;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100vh; /* fallback */
+  /* visible area only: on mobile, 100vh also counts the space behind the
+     browser's toolbar, which pushed the gesture guide off the bottom */
+  height: 100dvh;
   overflow: hidden;
   background: var(--bg);
 }

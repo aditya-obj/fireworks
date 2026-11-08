@@ -32,12 +32,19 @@ export class VideoCompositor {
     if (options.contrast !== undefined) this.contrast = options.contrast;
 
     this.resize();
-    window.addEventListener('resize', () => this.resize());
+    window.addEventListener('resize', () => {
+      this.resize();
+      void this.refitOrientation();
+    });
+    // mobile browsers resize the visible area when their toolbar shows/hides
+    window.visualViewport?.addEventListener('resize', () => this.resize());
   }
 
   public resize(): void {
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
+    // match the stage element (sized to the visible area via 100dvh)
+    const box = this.canvas.getBoundingClientRect();
+    this.width = Math.round(box.width) || window.innerWidth;
+    this.height = Math.round(box.height) || window.innerHeight;
 
     // Render at device pixel ratio for a crisp image on retina screens,
     // capped at ~2560x1440 worth of pixels to keep 60fps rendering & recording.
@@ -59,14 +66,12 @@ export class VideoCompositor {
       throw new Error('Camera API (getUserMedia) unavailable in this browser');
     }
 
-    // Ask for the highest resolution the camera offers, then lock to its max
+    // Ask for the camera in the same orientation as the screen. On an upright
+    // phone a landscape request gives a wide image that then has to be cropped
+    // hard to fill the tall screen (looks zoomed-in); a portrait request doesn't.
+    this.portrait = this.isPortrait();
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 3840 },
-        height: { ideal: 2160 },
-        frameRate: { ideal: 60 },
-        facingMode: 'user'
-      },
+      video: { ...this.sizeConstraints(this.portrait), frameRate: { ideal: 60 }, facingMode: 'user' },
       audio: false
     });
 
@@ -75,14 +80,14 @@ export class VideoCompositor {
       const caps = track.getCapabilities?.() as MediaTrackCapabilities & { zoom?: { min: number } };
       const advanced: Record<string, number>[] = [];
       if (caps?.zoom) advanced.push({ zoom: caps.zoom.min }); // widest field of view
-      await track.applyConstraints({
-        width: caps?.width?.max ? { ideal: caps.width.max } : undefined,
-        height: caps?.height?.max ? { ideal: caps.height.max } : undefined,
-        frameRate: { ideal: 60 },
-        advanced: advanced as MediaTrackConstraintSet[]
-      });
+      // Landscape screens: lock to the camera's full resolution. (Skipped in portrait:
+      // capabilities are reported in sensor/landscape terms and would force a wide crop.)
+      const full = !this.portrait && caps?.width?.max && caps?.height?.max
+        ? { width: { ideal: caps.width.max }, height: { ideal: caps.height.max } }
+        : {};
+      await track.applyConstraints({ ...full, frameRate: { ideal: 60 }, advanced: advanced as MediaTrackConstraintSet[] });
     } catch (err) {
-      console.warn('Could not apply max camera constraints:', err);
+      console.warn('Could not apply camera constraints:', err);
     }
     const settings = track.getSettings();
     console.info(`Camera: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
@@ -92,6 +97,31 @@ export class VideoCompositor {
     await this.video.play();
     this.isCameraReady = true;
     return stream;
+  }
+
+  private portrait = false;
+
+  private isPortrait(): boolean {
+    return window.innerHeight > window.innerWidth;
+  }
+
+  private sizeConstraints(portrait: boolean): MediaTrackConstraints {
+    return portrait
+      ? { width: { ideal: 1080 }, height: { ideal: 1920 } }
+      : { width: { ideal: 3840 }, height: { ideal: 2160 } };
+  }
+
+  /** When the phone is rotated, ask the camera for the new orientation */
+  private async refitOrientation(): Promise<void> {
+    const track = this.stream?.getVideoTracks()[0];
+    const portrait = this.isPortrait();
+    if (!track || portrait === this.portrait) return;
+    this.portrait = portrait;
+    try {
+      await track.applyConstraints({ ...this.sizeConstraints(portrait), frameRate: { ideal: 60 } });
+    } catch (err) {
+      console.warn('Could not re-fit camera after rotation:', err);
+    }
   }
 
   public stopCamera(): void {
