@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Rozha+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Rozha+One&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/src/style.css" />
@@ -48,23 +48,20 @@
         </div>
       </div>
 
-      <!-- UI Container (toggled in Creator Mode via 'H') -->
+      <!-- HUD (toggled with H) -->
       <div id="hud" class="hud-container">
-        <!-- Minimal, Poppy Top Navigation Bar -->
         <header class="hud-header">
-          <!-- Festive Diwali Pill -->
-          <div class="festive-badge">
-            <img src="/images/marigold.svg" class="badge-marigold" alt="Marigold" />
-            <span class="badge-text">Diwali 2026</span>
+          <div class="brand">
+            <span class="brand-name">Fireworks</span>
+            <span class="brand-sub">Diwali 2026</span>
           </div>
 
-          <!-- Minimal Controls: Only Sound & Record -->
           <div class="header-actions">
-            <button id="btn-audio" class="action-btn" title="Toggle Sound (M)">
-              <span class="btn-icon">🔊</span>
-              <span class="btn-label">Sound</span>
+            <button id="btn-audio" class="icon-btn" title="Sound (M)" aria-label="Toggle sound">
+              <svg class="icon icon-sound-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+              <svg class="icon icon-sound-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
             </button>
-            <button id="btn-record" class="action-btn btn-record" title="Record Reel (R)">
+            <button id="btn-record" class="record-btn" title="Record (R)" aria-label="Record video">
               <span class="record-dot"></span>
               <span id="record-label" class="btn-label">Record</span>
               <span id="record-timer" class="record-timer">00:00</span>
@@ -72,97 +69,26 @@
           </div>
         </header>
 
-        <!-- Colorful, Vibrant Gesture Guide Dock -->
         <footer class="hud-footer">
-          <div class="gesture-bar">
-            <div class="gesture-card card-rocket" data-gesture="ROCKET">
-              <span class="gesture-badge">☝️</span>
-              <div class="gesture-info">
-                <span class="gesture-name">Rocket</span>
-                <span class="gesture-sub">Point Up</span>
-              </div>
-            </div>
-
-            <div class="gesture-card card-anar" data-gesture="ANAR">
-              <span class="gesture-badge">✊</span>
-              <div class="gesture-info">
-                <span class="gesture-name">Anar</span>
-                <span class="gesture-sub">Fist</span>
-              </div>
-            </div>
-
-            <div class="gesture-card card-starburst" data-gesture="STARBURST">
-              <span class="gesture-badge">✋</span>
-              <div class="gesture-info">
-                <span class="gesture-name">Starburst</span>
-                <span class="gesture-sub">Palm</span>
-              </div>
-            </div>
-
-            <div class="gesture-card card-roman" data-gesture="ROMAN_CANDLE">
-              <span class="gesture-badge">✌️</span>
-              <div class="gesture-info">
-                <span class="gesture-name">Roman Candle</span>
-                <span class="gesture-sub">Peace</span>
-              </div>
-            </div>
-
-            <div class="gesture-card card-phooljhadi" data-gesture="PHOOLJHADI">
-              <span class="gesture-badge">👌</span>
-              <div class="gesture-info">
-                <span class="gesture-name">Phooljhadi</span>
-                <span class="gesture-sub">Pinch</span>
-              </div>
-            </div>
-
-            <div class="gesture-card card-finale" data-gesture="GRAND_FINALE">
-              <span class="gesture-badge">🙏</span>
-              <div class="gesture-info">
-                <span class="gesture-name">Finale</span>
-                <span class="gesture-sub">Namaste</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Mobile Credits Subline (Visible on small screens) -->
-          <div class="mobile-credits-subline">
-            <span>made by <strong class="credits-author">aditya</strong></span>
-            <span class="corner-sep">&bull;</span>
-            <a href="https://github.com/aditya-obj/fireworks" target="_blank" rel="noopener noreferrer" class="corner-link">
-              <svg class="corner-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-              </svg>
-              <span>Star on GitHub</span>
-            </a>
-          </div>
+          <ul class="gesture-bar" aria-label="Gestures">
+            <li class="gesture" data-gesture="ROCKET"><span class="gesture-glyph">☝️</span><span class="gesture-name">Rocket</span><span class="gesture-sub">Point up</span></li>
+            <li class="gesture" data-gesture="ANAR"><span class="gesture-glyph">✊</span><span class="gesture-name">Anar</span><span class="gesture-sub">Fist</span></li>
+            <li class="gesture" data-gesture="STARBURST"><span class="gesture-glyph">✋</span><span class="gesture-name">Starburst</span><span class="gesture-sub">Open palm</span></li>
+            <li class="gesture" data-gesture="ROMAN_CANDLE"><span class="gesture-glyph">✌️</span><span class="gesture-name">Roman Candle</span><span class="gesture-sub">Peace</span></li>
+            <li class="gesture" data-gesture="PHOOLJHADI"><span class="gesture-glyph">👌</span><span class="gesture-name">Phooljhadi</span><span class="gesture-sub">Pinch</span></li>
+            <li class="gesture" data-gesture="GRAND_FINALE"><span class="gesture-glyph">🙏</span><span class="gesture-name">Finale</span><span class="gesture-sub">Namaste</span></li>
+          </ul>
         </footer>
       </div>
 
-      <!-- Creator Mode Floating Pill (Shown when HUD hidden via 'H') -->
-      <button id="btn-restore-hud" class="restore-hud-btn hidden" title="Show Controls (Press H)">
-        <span>👁️ Show HUD [H]</span>
-      </button>
+      <!-- Shown when HUD is hidden with H -->
+      <button id="btn-restore-hud" class="restore-hud-btn hidden" title="Show controls (H)">Show controls</button>
 
-      <!-- Bottom Left Credits Stack  -->
-      <div class="corner-credits corner-left" id="corner-left">
-        <div class="credits-tagline">
-          <span>made by <strong class="credits-author">aditya</strong></span>
-        </div>
-        <div class="credits-links">
-          <a href="https://github.com/aditya-obj/fireworks" target="_blank" rel="noopener noreferrer" class="corner-link" title="Star on GitHub">
-            <svg class="corner-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-            </svg>
-            <span>Star on GitHub</span>
-          </a>
-        </div>
-      </div>
-
-      <!-- Video Recording Floating Preview Card (Fog-Mirror Style) -->
+      <!-- Recorded reel preview -->
       <aside id="reel-preview-card" class="reel-preview hidden" aria-label="Recorded Diwali Reel">
         <button type="button" id="reel-preview-thumb-btn" class="reel-thumb-btn" aria-label="Open full reel preview">
           <video id="reel-preview-video" playsinline loop muted autoplay></video>
-          <div class="reel-play-overlay"><span>🔍</span></div>
+          <div class="reel-play-overlay"><span>View</span></div>
         </button>
         <div class="reel-card-meta">
           <span id="reel-duration" class="reel-duration">00:00</span>
@@ -174,13 +100,12 @@
         </div>
       </aside>
 
-      <!-- Full Video Dialog (Fog-Mirror Style) -->
+      <!-- Full reel dialog -->
       <dialog id="reel-dialog" class="reel-dialog" aria-label="Diwali Reel Player">
         <div class="reel-dialog-card">
           <div class="reel-dialog-header">
             <div class="reel-dialog-title">
-              <img src="/images/marigold.svg" class="dialog-marigold" alt="" />
-              <span>Diwali Fireworks</span>
+              <span>Your reel</span>
             </div>
             <button type="button" id="reel-dialog-close-btn" class="reel-dialog-close" aria-label="Close dialog">&times;</button>
           </div>

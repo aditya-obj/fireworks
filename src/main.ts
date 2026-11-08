@@ -37,6 +37,7 @@ class FireworksApp {
   private reelDialogSaveBtn: HTMLElement;
   private reelDialogCloseBtn: HTMLElement;
 
+  private gestureEls: Map<string, HTMLElement> = new Map();
   private isCreatorMode: boolean = false;
   private lastFrameTime: number = performance.now();
   private recordedVideoUrl: string = '';
@@ -98,6 +99,10 @@ class FireworksApp {
       }
     });
 
+    document.querySelectorAll<HTMLElement>('.gesture[data-gesture]').forEach((el) => {
+      this.gestureEls.set(el.dataset.gesture!, el);
+    });
+
     this.setupListeners();
     this.init();
   }
@@ -108,17 +113,14 @@ class FireworksApp {
     window.addEventListener('keydown', unlockAudio, { once: true });
 
     // 1. Creator Mode Toggle (H key)
-    const cornerLeft = document.getElementById('corner-left');
     const toggleCreatorMode = () => {
       this.isCreatorMode = !this.isCreatorMode;
       if (this.isCreatorMode) {
         this.hudElement.classList.add('hud-hidden');
         this.restoreHudBtn.classList.remove('hidden');
-        if (cornerLeft) cornerLeft.style.opacity = '0';
       } else {
         this.hudElement.classList.remove('hud-hidden');
         this.restoreHudBtn.classList.add('hidden');
-        if (cornerLeft) cornerLeft.style.opacity = '1';
       }
     };
     this.restoreHudBtn.addEventListener('click', toggleCreatorMode);
@@ -132,17 +134,8 @@ class FireworksApp {
     const toggleAudio = () => {
       this.audio.unlock();
       const muted = this.audio.toggleMute();
-      const label = this.audioBtn.querySelector('.btn-label');
-      const icon = this.audioBtn.querySelector('.btn-icon');
-      if (label && icon) {
-        label.textContent = muted ? 'Muted' : 'Sound';
-        icon.textContent = muted ? '🔇' : '🔊';
-      }
-      if (muted) {
-        this.audioBtn.classList.add('btn-active');
-      } else {
-        this.audioBtn.classList.remove('btn-active');
-      }
+      this.audioBtn.classList.toggle('is-muted', muted);
+      this.audioBtn.setAttribute('aria-pressed', String(muted));
     };
     this.audioBtn.addEventListener('click', toggleAudio);
 
@@ -314,6 +307,10 @@ class FireworksApp {
       this.compositor.width,
       this.compositor.height
     );
+
+    // Highlight the detected gesture(s) in the guide
+    const activeTypes = new Set(activeGestures.map((g) => g.type as string));
+    this.gestureEls.forEach((el, type) => el.classList.toggle('is-active', activeTypes.has(type)));
 
     // Check if Grand Finale was recognized by gesture
     const isFinale = activeGestures.some((g) => g.type === 'GRAND_FINALE');

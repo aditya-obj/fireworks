@@ -70,7 +70,7 @@ export class CaptureEngine {
 
       const options: MediaRecorderOptions = {
         mimeType: selectedMime || undefined,
-        videoBitsPerSecond: 8_000_000 // 8 Mbps high-bitrate Full HD
+        videoBitsPerSecond: 12_000_000 // 12 Mbps for up to 1440p
       };
 
       this.recorder = new MediaRecorder(combinedStream, options);
@@ -169,7 +169,7 @@ export class CaptureEngine {
 
     tCtx.fillStyle = '#E2E8F0';
     tCtx.shadowBlur = 0;
-    tCtx.font = `${Math.max(12, tempCanvas.width * 0.012)}px "Plus Jakarta Sans", sans-serif`;
+    tCtx.font = `${Math.max(12, tempCanvas.width * 0.012)}px "Inter", sans-serif`;
     tCtx.fillText('Fireworks 2026', tempCanvas.width - pad, tempCanvas.height - pad);
     tCtx.restore();
 

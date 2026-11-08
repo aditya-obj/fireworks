@@ -1,7 +1,7 @@
 /**
  * Video Compositor & Night-Sky Atmosphere Pipeline
- * Handles camera capture (pinned to 640x480 for ultra-fast processing),
- * mirroring, night-sky color grading, and stage rendering.
+ * Handles HD camera capture, DPR-aware canvas sizing, mirroring,
+ * light night-time color grading, and stage rendering.
  */
 
 export interface CompositorOptions {
@@ -18,8 +18,8 @@ export class VideoCompositor {
   public width: number = window.innerWidth;
   public height: number = window.innerHeight;
   public isCameraReady: boolean = false;
-  public dimming: number = 0.60;
-  public contrast: number = 1.15;
+  public dimming: number = 0.85;
+  public contrast: number = 1.06;
   private stream: MediaStream | null = null;
 
   constructor(options: CompositorOptions) {
@@ -39,16 +39,19 @@ export class VideoCompositor {
     this.width = window.innerWidth;
     this.height = window.innerHeight;
 
-    // Cap at Full HD (1920x1080) with 1:1 pixel mapping for 60 FPS real-time hardware recording
-    let scale = 1;
-    if (this.width > 1920 || this.height > 1080) {
-      scale = Math.min(1920 / this.width, 1080 / this.height);
+    // Render at device pixel ratio for a crisp image on retina screens,
+    // capped at ~2560x1440 worth of pixels to keep 60fps rendering & recording.
+    const dpr = window.devicePixelRatio || 1;
+    const maxPixels = 2560 * 1440;
+    let scale = dpr;
+    if (this.width * this.height * scale * scale > maxPixels) {
+      scale = Math.sqrt(maxPixels / (this.width * this.height));
     }
     this.canvas.width = Math.round(this.width * scale);
     this.canvas.height = Math.round(this.height * scale);
-    if (scale !== 1) {
-      this.ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    }
+    this.ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'high';
   }
 
   public async startCamera(): Promise<MediaStream> {
@@ -56,11 +59,12 @@ export class VideoCompositor {
       throw new Error('Camera API (getUserMedia) unavailable in this browser');
     }
 
-    // Pinned to 640x480 for 5ms frame transfer latency & cold GPU/CPU
+    // Request HD; MediaPipe downsamples internally so tracking cost stays low
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 60 },
         facingMode: 'user'
       },
       audio: false
@@ -124,12 +128,12 @@ export class VideoCompositor {
       }
 
       // Atmospheric Night-Sky Filter: dimming + contrast + slight blue tint
-      ctx.filter = `brightness(${this.dimming}) contrast(${this.contrast}) saturate(0.9)`;
+      ctx.filter = `brightness(${this.dimming}) contrast(${this.contrast}) saturate(1.05)`;
       ctx.drawImage(video, drawX, drawY, drawW, drawH);
       ctx.filter = 'none';
 
-      // Deep blue/indigo night tint overlay
-      ctx.fillStyle = 'rgba(6, 12, 38, 0.28)';
+      // Subtle cool night tint
+      ctx.fillStyle = 'rgba(8, 12, 30, 0.12)';
       ctx.fillRect(0, 0, width, height);
 
       ctx.restore();
