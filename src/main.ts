@@ -37,7 +37,6 @@ class FireworksApp {
   private reelDialogSaveBtn: HTMLElement;
   private reelDialogCloseBtn: HTMLElement;
 
-  private gestureEls: Map<string, HTMLElement> = new Map();
   private isCreatorMode: boolean = false;
   private lastFrameTime: number = performance.now();
   private recordedVideoUrl: string = '';
@@ -97,10 +96,6 @@ class FireworksApp {
           this.audio.playFinaleBarrage();
           break;
       }
-    });
-
-    document.querySelectorAll<HTMLElement>('.gesture[data-gesture]').forEach((el) => {
-      this.gestureEls.set(el.dataset.gesture!, el);
     });
 
     this.setupListeners();
@@ -284,13 +279,37 @@ class FireworksApp {
   }
 
   private async init(): Promise<void> {
-    try {
-      await this.compositor.startCamera();
-      await this.vision.init();
-    } catch (err) {
-      console.error('Initialization failed:', err);
-    }
+    // Load the hand model in the background while the intro is showing
+    const visionReady = this.vision.init().catch((err) => {
+      console.error('Hand tracking failed to load:', err);
+    });
     this.loop();
+
+    // Browsers block sound until the user interacts, so the intro's Start
+    // button unlocks audio and asks for the camera in the same click.
+    const intro = document.getElementById('intro') as HTMLElement;
+    const startBtn = document.getElementById('intro-start') as HTMLButtonElement;
+    const note = document.getElementById('intro-note') as HTMLElement;
+    startBtn.focus();
+
+    startBtn.addEventListener('click', async () => {
+      this.audio.unlock();
+      startBtn.disabled = true;
+      startBtn.textContent = 'Starting…';
+      try {
+        await this.compositor.startCamera();
+      } catch (err) {
+        console.error('Camera failed to start:', err);
+        startBtn.disabled = false;
+        startBtn.textContent = 'Try again';
+        note.textContent = 'Camera is blocked. Allow it from the icon in the address bar, then try again.';
+        note.classList.add('is-error');
+        return;
+      }
+      intro.classList.add('is-leaving');
+      window.setTimeout(() => intro.remove(), 450);
+      await visionReady;
+    });
   }
 
   private loop = (): void => {
@@ -306,10 +325,6 @@ class FireworksApp {
       this.compositor.video,
       this.compositor.getVideoRect()
     );
-
-    // Highlight the detected gesture(s) in the guide
-    const activeTypes = new Set(activeGestures.map((g) => g.type as string));
-    this.gestureEls.forEach((el, type) => el.classList.toggle('lg-on', activeTypes.has(type)));
 
     // Check if Grand Finale was recognized by gesture
     const isFinale = activeGestures.some((g) => g.type === 'GRAND_FINALE');
