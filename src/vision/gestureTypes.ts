@@ -30,6 +30,14 @@ export interface HandPose {
     ring: boolean;
     pinky: boolean;
   };
+  // Definitely folded fingers (stricter than !extended; in-between = neither)
+  curledFingers: {
+    index: boolean;
+    middle: boolean;
+    ring: boolean;
+    pinky: boolean;
+  };
+  handSize: number; // wrist → middle-finger knuckle, in px; used to scale thresholds
   palmCenter: ScreenLandmark;
   pinchDistance: number;
   isPinching: boolean;

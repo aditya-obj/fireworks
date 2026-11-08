@@ -243,43 +243,53 @@ button {
 
 /* ============================================================
    LIQUID GLASS
+   Five layers: frost, tint, edge, depth, sheen.
+   .lg-glass  panel / pill / menu
+   .lg-tile   button or row inside a panel
+   .lg-on     "switched on" state (solid white)
+   .lg-field  input sunk into a panel
+   .lg-dark   on any parent for a darker tint
+   No opacity on .lg-glass itself: it kills backdrop-filter. Fade children instead.
    ============================================================ */
-.glass {
-  --glass-tint: rgba(18, 20, 28, 0.18);
+.lg-glass {
+  --lg-tint: rgba(16, 16, 20, 0.2);
   position: relative;
   isolation: isolate;
+  /* 2. Tint: faint dark base + soft white top-to-bottom gradient */
   background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 45%, rgba(255, 255, 255, 0.08) 100%),
-    var(--glass-tint);
-  -webkit-backdrop-filter: blur(14px) saturate(190%) brightness(1.04);
-  backdrop-filter: blur(14px) saturate(190%) brightness(1.04);
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02)),
+    var(--lg-tint);
+  /* 1. Frost: light blur keeps it clear; saturate makes it read as glass */
+  -webkit-backdrop-filter: blur(5px) saturate(1.6) brightness(0.95);
+  backdrop-filter: blur(5px) saturate(1.6) brightness(0.95);
   border: none;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 0, 0, 0.18);
+  /* 4. Depth: inner glow + one soft shadow underneath */
   box-shadow:
-    inset 0 1px 0.5px rgba(255, 255, 255, 0.55),
-    inset 0 -1px 0.5px rgba(255, 255, 255, 0.12),
-    inset 0 0 18px rgba(255, 255, 255, 0.06),
-    0 10px 30px rgba(0, 0, 0, 0.28),
-    0 1px 3px rgba(0, 0, 0, 0.2);
+    inset 0 1px 1px rgba(255, 255, 255, 0.25),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 20px rgba(255, 255, 255, 0.05),
+    0 8px 24px rgba(0, 0, 0, 0.22);
 }
 
-/* Chromium: real refraction through an SVG displacement filter */
-.refract .glass {
-  backdrop-filter: url(#liquid-refract) blur(10px) saturate(190%) brightness(1.04);
+.lg-dark .lg-glass,
+.lg-glass.lg-dark {
+  --lg-tint: rgba(12, 12, 16, 0.55);
 }
 
-/* Specular rim: bright top-left edge fading to a faint bottom-right edge */
-.glass::before {
+/* 3. Edge: 1px gradient border, brightest top-left; mask cuts out the middle */
+.lg-glass::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   padding: 1px;
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.75) 0%,
-    rgba(255, 255, 255, 0.18) 30%,
-    rgba(255, 255, 255, 0.04) 55%,
-    rgba(255, 255, 255, 0.22) 85%,
-    rgba(255, 255, 255, 0.45) 100%);
+    rgba(255, 255, 255, 0.7) 0%,
+    rgba(255, 255, 255, 0.15) 35%,
+    rgba(255, 255, 255, 0.05) 60%,
+    rgba(255, 255, 255, 0.25) 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -287,27 +297,93 @@ button {
   z-index: 1;
 }
 
-/* Soft inner glare across the top half */
-.glass::after {
+/* 5. Sheen: soft radial highlight across the top */
+.lg-glass::after {
   content: "";
   position: absolute;
-  inset: 1px 1px 50% 1px;
+  inset: 0;
   border-radius: inherit;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.14), transparent);
+  background: radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.16), transparent 60%);
   pointer-events: none;
   z-index: -1;
 }
 
-button.glass {
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s var(--ease);
+.lg-glass > * {
+  position: relative;
+  z-index: 2;
 }
 
-button.glass:hover {
-  filter: brightness(1.12);
+button.lg-glass {
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s var(--ease);
 }
 
-button.glass:active {
-  transform: scale(0.94);
+button.lg-glass:hover {
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06)),
+    var(--lg-tint);
+}
+
+button.lg-glass:active {
+  transform: scale(0.95);
+}
+
+/* Tile: a button or row inside a panel */
+.lg-tile {
+  border: none;
+  background: transparent;
+  color: #fff;
+  border-radius: 14px;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease), box-shadow 0.2s var(--ease),
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+button.lg-tile {
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.2);
+}
+
+button.lg-tile:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+button.lg-tile:active {
+  transform: scale(0.96);
+}
+
+/* On: solid white, dark text */
+.lg-tile.lg-on,
+button.lg-tile.lg-on {
+  background: rgba(255, 255, 255, 0.95);
+  color: #111216;
+  text-shadow: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+}
+
+button.lg-tile.lg-on:hover {
+  background: #fff;
+}
+
+.lg-on .gesture-name,
+.lg-on .gesture-sub {
+  color: #111216;
+  text-shadow: none;
+}
+
+.lg-on .gesture-sub {
+  opacity: 0.6;
+}
+
+/* Field: input sunk into a panel */
+.lg-field {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  outline: none;
 }
 
 /* ============================================================
@@ -341,15 +417,13 @@ button.glass:active {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
-  padding: 10px 18px 11px;
-  border-radius: 20px;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+  gap: 2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 18px rgba(0, 0, 0, 0.35);
 }
 
 .brand-name {
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 34px;
   line-height: 0.95;
   letter-spacing: -0.01em;
   color: #fff;
@@ -358,9 +432,9 @@ button.glass:active {
 .brand-sub {
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   color: var(--accent);
 }
 
@@ -432,7 +506,7 @@ button.glass:active {
 }
 
 .record-btn.recording {
-  --glass-tint: rgba(255, 60, 60, 0.28);
+  --lg-tint: rgba(255, 60, 60, 0.3);
 }
 
 .record-btn.recording .record-dot {
@@ -476,8 +550,6 @@ button.glass:active {
 }
 
 .gesture {
-  position: relative;
-  z-index: 2;
   display: grid;
   grid-template-columns: auto auto;
   grid-template-rows: auto auto;
@@ -485,8 +557,6 @@ button.glass:active {
   align-items: center;
   padding: 8px 16px 8px 12px;
   border-radius: 18px;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
-  transition: background 0.25s var(--ease), box-shadow 0.25s var(--ease);
 }
 
 .gesture-glyph {
@@ -509,13 +579,7 @@ button.glass:active {
   white-space: nowrap;
 }
 
-/* Active gesture: a brighter glass droplet inside the bar */
-.gesture.is-active {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08));
-  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.7), 0 4px 14px rgba(0, 0, 0, 0.2);
-}
-
-.gesture.is-active .gesture-glyph {
+.gesture.lg-on .gesture-glyph {
   transform: scale(1.15);
 }
 
@@ -527,11 +591,6 @@ button.glass:active {
   padding: 0 18px;
   font-size: 13px;
   font-weight: 500;
-  opacity: 0.45;
-}
-
-.restore-hud-btn:hover {
-  opacity: 1;
 }
 
 .restore-hud-btn.hidden {
@@ -555,18 +614,13 @@ button.glass:active {
   animation: slide-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.reel-preview > * {
-  position: relative;
-  z-index: 2;
-}
-
 .reel-preview.hidden {
   display: none;
 }
 
 @keyframes slide-in {
-  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-  to { opacity: 1; transform: none; }
+  from { transform: translateY(-8px) scale(0.97); }
+  to { transform: none; }
 }
 
 .reel-thumb-btn {
@@ -623,22 +677,6 @@ button.glass:active {
   gap: 6px;
 }
 
-.hud-btn {
-  border: none;
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.35);
-  color: #fff;
-  cursor: pointer;
-  transition: background 0.2s var(--ease), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.hud-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.hud-btn:active {
-  transform: scale(0.95);
-}
 
 .hud-btn-label {
   flex: 1;
@@ -650,18 +688,6 @@ button.glass:active {
   white-space: nowrap;
 }
 
-.btn-save,
-.hud-btn-download {
-  background: var(--accent);
-  color: #1a1206;
-  font-weight: 600;
-  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.6), 0 4px 14px rgba(255, 181, 71, 0.3);
-}
-
-.btn-save:hover,
-.hud-btn-download:hover {
-  background: #ffc46b;
-}
 
 .btn-dismiss {
   color: rgba(255, 255, 255, 0.75);
@@ -685,17 +711,11 @@ button.glass:active {
 }
 
 .reel-dialog-card {
-  --glass-tint: rgba(16, 18, 26, 0.5);
   border-radius: 28px;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.reel-dialog-card > * {
-  position: relative;
-  z-index: 2;
 }
 
 .reel-dialog-header {

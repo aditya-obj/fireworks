@@ -107,7 +107,6 @@ export class VisionEngine {
     result: HandLandmarkerResult,
     rect: { x: number; y: number; w: number; h: number }
   ): HandPose[] {
-    const screenW = rect.w;
     const hands: HandPose[] = [];
 
     result.landmarks.forEach((rawMarks, idx) => {
@@ -132,26 +131,50 @@ export class VisionEngine {
         z: (wrist.z + indexMcp.z + pinkyMcp.z) / 3
       };
 
-      // Rotation-invariant finger extension checks using Euclidean distances
+      // Hand size makes every threshold independent of distance from the camera
+      const handSize = Math.max(
+        1,
+        Math.hypot(screenMarks[9].x - wrist.x, screenMarks[9].y - wrist.y)
+      );
+
+      // Each finger is extended, curled, or in-between (neither). Gestures
+      // require definite states, so half-bent fingers never trigger anything.
+      const fingerState = (mcp: number, pip: number, tip: number) =>
+        this.fingerState(screenMarks, mcp, pip, tip, wrist);
+      const index = fingerState(5, 6, 8);
+      const middle = fingerState(9, 10, 12);
+      const ring = fingerState(13, 14, 16);
+      const pinky = fingerState(17, 18, 20);
+
       const extendedFingers = {
-        index: this.isFingerExtended(screenMarks, 5, 6, 8, wrist),
-        middle: this.isFingerExtended(screenMarks, 9, 10, 12, wrist),
-        ring: this.isFingerExtended(screenMarks, 13, 14, 16, wrist),
-        pinky: this.isFingerExtended(screenMarks, 17, 18, 20, wrist),
+        index: index === 'extended',
+        middle: middle === 'extended',
+        ring: ring === 'extended',
+        pinky: pinky === 'extended',
         thumb: this.isThumbExtended(screenMarks, pinkyMcp)
       };
+      const curledFingers = {
+        index: index === 'curled',
+        middle: middle === 'curled',
+        ring: ring === 'curled',
+        pinky: pinky === 'curled'
+      };
 
-      // Pinch distance between Thumb tip (4) and Index tip (8)
+      // 👌 Pinch: thumb & index tips touching while the other fingers stay up
       const thumbTip = screenMarks[4];
       const indexTip = screenMarks[8];
       const pinchDistance = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
-      const isPinching = pinchDistance < Math.max(38, screenW * 0.035);
+      const othersUp =
+        Number(extendedFingers.middle) + Number(extendedFingers.ring) + Number(extendedFingers.pinky);
+      const isPinching = pinchDistance < handSize * 0.3 && othersUp >= 2;
 
       hands.push({
         handedness,
         landmarks: screenMarks,
         rawLandmarks: rawMarks,
         extendedFingers,
+        curledFingers,
+        handSize,
         palmCenter,
         pinchDistance,
         isPinching
@@ -162,25 +185,29 @@ export class VisionEngine {
   }
 
   /**
-   * Rotation-invariant check: distance(tip, wrist) > distance(pip, wrist) * 1.15
+   * Rotation-invariant finger state from distances to the knuckle and wrist.
+   * A straight finger's tip is ~2x as far from its knuckle as the middle joint is;
+   * a folded finger's tip comes back to (or inside) the knuckle.
    */
-  private isFingerExtended(
+  private fingerState(
     marks: ScreenLandmark[],
     mcpIdx: number,
     pipIdx: number,
     tipIdx: number,
     wrist: ScreenLandmark
-  ): boolean {
+  ): 'extended' | 'curled' | 'between' {
     const tip = marks[tipIdx];
     const pip = marks[pipIdx];
     const mcp = marks[mcpIdx];
 
-    const distTipWrist = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
-    const distPipWrist = Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
-    const distTipMcp = Math.hypot(tip.x - mcp.x, tip.y - mcp.y);
-    const distPipMcp = Math.hypot(pip.x - mcp.x, pip.y - mcp.y);
+    const tipWrist = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
+    const pipWrist = Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
+    const tipMcp = Math.hypot(tip.x - mcp.x, tip.y - mcp.y);
+    const pipMcp = Math.max(1, Math.hypot(pip.x - mcp.x, pip.y - mcp.y));
 
-    return distTipWrist > distPipWrist * 1.12 && distTipMcp > distPipMcp * 1.1;
+    if (tipWrist > pipWrist * 1.2 && tipMcp > pipMcp * 1.6) return 'extended';
+    if (tipWrist < pipWrist * 1.02 || tipMcp < pipMcp * 1.15) return 'curled';
+    return 'between';
   }
 
   /**

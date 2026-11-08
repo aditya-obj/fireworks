@@ -105,25 +105,23 @@ export class VideoCompositor {
 
   /**
    * Screen-space rectangle (CSS px, unmirrored) the camera frame occupies.
-   * The whole frame is shown ("contain"), so nothing is cropped or zoomed.
+   * Fills the screen edge to edge with the smallest possible crop (no bars).
+   * May extend past the screen edges; hand landmarks are mapped through it.
    */
   public getVideoRect(): { x: number; y: number; w: number; h: number } {
     const { width, height, video } = this;
     if (!video.videoWidth) return { x: 0, y: 0, w: width, h: height };
     const videoRatio = video.videoWidth / video.videoHeight;
     if (width / height > videoRatio) {
-      const w = height * videoRatio;
-      return { x: (width - w) / 2, y: 0, w, h: height };
+      const h = width / videoRatio;
+      return { x: 0, y: (height - h) / 2, w: width, h };
     }
-    const h = width / videoRatio;
-    return { x: 0, y: (height - h) / 2, w: width, h };
+    const w = height * videoRatio;
+    return { x: (width - w) / 2, y: 0, w, h: height };
   }
 
-  private fillCanvas: HTMLCanvasElement = document.createElement('canvas');
-
   /**
-   * Draws the mirrored camera frame uncropped, with a soft blurred copy
-   * filling any letterbox space so the stage stays edge-to-edge.
+   * Draws the mirrored camera frame edge to edge.
    */
   public drawBackground(): void {
     const { ctx, width, height, video } = this;
@@ -141,19 +139,6 @@ export class VideoCompositor {
       ctx.scale(-1, 1);
       // Mirrored x for the rect
       const mx = width - rect.x - rect.w;
-
-      // Letterbox fill: tiny downscaled copy stretched to cover = cheap blur
-      if (rect.w < width - 1 || rect.h < height - 1) {
-        const fc = this.fillCanvas;
-        fc.width = 48;
-        fc.height = Math.max(1, Math.round(48 * (video.videoHeight / video.videoWidth)));
-        fc.getContext('2d')!.drawImage(video, 0, 0, fc.width, fc.height);
-        const cover = Math.max(width / rect.w, height / rect.h);
-        const cw = rect.w * cover;
-        const ch = rect.h * cover;
-        ctx.filter = 'brightness(0.45) saturate(1.2)';
-        ctx.drawImage(fc, (width - cw) / 2, (height - ch) / 2, cw, ch);
-      }
 
       ctx.filter = grade;
       ctx.drawImage(video, mx, rect.y, rect.w, rect.h);

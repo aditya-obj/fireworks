@@ -309,7 +309,7 @@ class FireworksApp {
 
     // Highlight the detected gesture(s) in the guide
     const activeTypes = new Set(activeGestures.map((g) => g.type as string));
-    this.gestureEls.forEach((el, type) => el.classList.toggle('is-active', activeTypes.has(type)));
+    this.gestureEls.forEach((el, type) => el.classList.toggle('lg-on', activeTypes.has(type)));
 
     // Check if Grand Finale was recognized by gesture
     const isFinale = activeGestures.some((g) => g.type === 'GRAND_FINALE');
@@ -335,8 +335,5 @@ class FireworksApp {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  // Chromium supports SVG filters in backdrop-filter, which gives the glass real refraction
-  const isChromium = !!(navigator as Navigator & { userAgentData?: unknown }).userAgentData;
-  if (isChromium) document.documentElement.classList.add('refract');
   new FireworksApp();
 });
